@@ -44,17 +44,56 @@ Set-PSReadLineKeyHandler -Chord 'Ctrl+,' -ScriptBlock {
 function Toggle-Proxy {
     $httpPort = 20001
     $socksPort = 20000
-    if ($env:http_proxy) {
-        $env:http_proxy = $null
-        $env:https_proxy = $null
-        $env:SOCKS_SERVER = $null
-        Write-Host "代理已关闭"
-    } else {
+
+    function Show-ProxyStatus {
+        if ($env:http_proxy) {
+            Write-Host "当前网络代理状态: 已开启" -ForegroundColor Green
+            Write-Host "HTTP 代理: $env:http_proxy" -ForegroundColor Cyan
+            Write-Host "SOCKS 代理: $env:SOCKS_SERVER" -ForegroundColor Cyan
+        } else {
+            Write-Host "当前网络代理状态: 已关闭" -ForegroundColor Yellow
+        }
+    }
+
+    function Enable-Proxy {
         $env:http_proxy = "http://127.0.0.1:$httpPort"
         $env:https_proxy = "http://127.0.0.1:$httpPort"
         $env:SOCKS_SERVER = "socks5://127.0.0.1:$socksPort"
-        Write-Host "代理已开启"
+        Write-Host "代理已开启" -ForegroundColor Green
+        Show-ProxyStatus
     }
+
+    function Disable-Proxy {
+        $env:http_proxy = $null
+        $env:https_proxy = $null
+        $env:SOCKS_SERVER = $null
+        Write-Host "代理已关闭" -ForegroundColor Yellow
+        Show-ProxyStatus
+    }
+
+    do {
+        Clear-Host
+        Write-Host "网络代理设置" -ForegroundColor Cyan
+        Write-Host "================" -ForegroundColor Cyan
+        Show-ProxyStatus
+        Write-Host "================" -ForegroundColor Cyan
+        Write-Host "1. 开启网络代理" -ForegroundColor Yellow
+        Write-Host "2. 关闭网络代理" -ForegroundColor Yellow
+        Write-Host "3. 返回主菜单" -ForegroundColor Yellow
+        Write-Host "================" -ForegroundColor Cyan
+        $choice = Read-Host "请选择操作 (1-3)"
+
+        switch ($choice) {
+            "1" { Enable-Proxy }
+            "2" { Disable-Proxy }
+            "3" { return }
+            default { Write-Host "无效的选择，请重试。" -ForegroundColor Red }
+        }
+
+        if ($choice -ne "3") {
+            Read-Host "按 Enter 键继续"
+        }
+    } while ($choice -ne "3")
 }
 
 # Scoop代理设置
@@ -283,7 +322,7 @@ function Update-PowerShellProfile {
             Write-Host "配置文件已是最新版本。" -ForegroundColor Green
         }
     } catch {
-        Write-Host "更新配置文件时出���：$($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "更新配置文件时出：$($_.Exception.Message)" -ForegroundColor Red
     }
 
     # 更新最后检查时间
