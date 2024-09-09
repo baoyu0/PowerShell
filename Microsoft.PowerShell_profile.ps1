@@ -551,3 +551,25 @@ Write-Host "提示：您可以随时输入 'Show-ProfileMenu' 来再次打开配
 Set-Alias -Name s -Value Show-ProfileMenu
 
 Write-Host "提示：您可以随时输入 's' 来打开配置文件管理菜单。" -ForegroundColor Cyan
+
+function Show-UpdateProgress {
+    param (
+        [string]$Action,
+        [scriptblock]$ScriptBlock
+    )
+    $spinner = "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"
+    $spinnerIndex = 0
+    $job = Start-Job -ScriptBlock $ScriptBlock
+
+    while ($job.State -eq "Running") {
+        Write-Host "`r$($spinner[$spinnerIndex]) $Action" -NoNewline -ForegroundColor Cyan
+        $spinnerIndex = ($spinnerIndex + 1) % $spinner.Length
+        Start-Sleep -Milliseconds 100
+    }
+
+    $result = Receive-Job -Job $job
+    Remove-Job -Job $job
+
+    Write-Host "`r✔️ $Action 完成" -ForegroundColor Green
+    $result | Out-Host
+}
