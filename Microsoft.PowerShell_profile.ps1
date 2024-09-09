@@ -365,7 +365,7 @@ function Show-ProfileMenu {
 
     function Navigate-QuickAccess {
         $locations = @("Desktop", "Documents", "Downloads", "自定义路径")
-        $choice = Show-Menu "选择要导航的位置" $locations
+        $choice = Show-Menu "选择要导航的置" $locations
         switch ($choice) {
             {$_ -in 0..2} { Set-CommonLocation $locations[$_] }
             3 { 
@@ -382,10 +382,56 @@ function Show-ProfileMenu {
     }
 
     function Manage-Tools {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+        function Set-PSGallery {
+            if ((Get-PSRepository -Name PSGallery).InstallationPolicy -ne 'Trusted') {
+                Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+            }
+            $currentUrl = (Get-PSRepository -Name PSGallery).SourceLocation
+            $correctUrl = 'https://www.powershellgallery.com/api/v2'
+            if ($currentUrl -ne $correctUrl) {
+                Register-PSRepository -Default -ErrorAction SilentlyContinue
+                Register-PSRepository -Name PSGallery -SourceLocation $correctUrl -InstallationPolicy Trusted -ErrorAction SilentlyContinue
+            }
+        }
+
+        Set-PSGallery
+
+        if ($env:http_proxy) {
+            [System.Net.WebRequest]::DefaultWebProxy = New-Object System.Net.WebProxy($env:http_proxy)
+        }
+
         $tools = @(
             @{Name="Oh My Posh"; Action={Install-OhMyPosh}},
-            @{Name="Terminal-Icons"; Action={Install-Module Terminal-Icons -Force -Scope CurrentUser}},
-            @{Name="PSReadLine"; Action={Install-Module PSReadLine -Force -Scope CurrentUser}},
+            @{Name="Terminal-Icons"; Action={
+                try {
+                    Install-Module Terminal-Icons -Force -Scope CurrentUser -ErrorAction Stop
+                } catch {
+                    Write-Host "通过 PowerShell Gallery 安装失败，尝试通过 GitHub 安装..." -ForegroundColor Yellow
+                    $tempDir = Join-Path $env:TEMP "Terminal-Icons"
+                    if (Test-Path $tempDir) { Remove-Item $tempDir -Recurse -Force }
+                    git clone https://github.com/devblackops/Terminal-Icons.git $tempDir
+                    Import-Module "$tempDir\Terminal-Icons.psd1" -Force
+                    Write-Host "Terminal-Icons 已从 GitHub 安装并导入。" -ForegroundColor Green
+                }
+            }},
+            @{Name="PSReadLine"; Action={
+                try {
+                    $currentVersion = (Get-Module PSReadLine).Version
+                    $latestVersion = (Find-Module PSReadLine).Version
+                    if ($currentVersion -lt $latestVersion) {
+                        Write-Host "当前版本: $currentVersion" -ForegroundColor Yellow
+                        Write-Host "最新版本: $latestVersion" -ForegroundColor Green
+                        Write-Host "PSReadLine 需要更新。请在 PowerShell 重启后运行以下命令：" -ForegroundColor Cyan
+                        Write-Host "Install-Module PSReadLine -Force -Scope CurrentUser" -ForegroundColor Cyan
+                    } else {
+                        Write-Host "PSReadLine 已是最新版本 ($currentVersion)。" -ForegroundColor Green
+                    }
+                } catch {
+                    Write-Host "检查 PSReadLine 版本时出错：$($_.Exception.Message)" -ForegroundColor Red
+                }
+            }},
             @{Name="Scoop"; Action={Install-Scoop}},
             @{Name="Chocolatey"; Action={Install-Chocolatey}},
             @{Name="返回主菜单"; Action={return}}
@@ -432,7 +478,10 @@ function Show-ProfileMenu {
 
     do {
         Draw-Menu
-        $choice = Read-Host "请输入您的选择 (1-$($options.Count))"
+        $choice = Read-Host "请输入您的选择 (1-$($options.Count))，或输入 'q' 退出"
+        if ($choice -eq 'q') {
+            break
+        }
         if ($choice -match '^\d+$' -and [int]$choice -ge 1 -and [int]$choice -le $options.Count) {
             $result = & $options[[int]$choice - 1].Action
             if ($result -is [bool] -and $result) {
@@ -450,3 +499,5 @@ function Show-ProfileMenu {
 
 # 在配置文件末尾直接调用菜单函数
 Show-ProfileMenu
+
+Write-Host "提示：您可以随时输入 'Show-ProfileMenu' 来再次打开配置文件管理菜单。" -ForegroundColor Cyan
