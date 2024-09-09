@@ -334,6 +334,8 @@ function Show-ProfileMenu {
             @{Name="查看网络连接"; Command="Get-NetAdapter"},
             @{Name="查看进程"; Command="Get-Process"},
             @{Name="查看服务"; Command="Get-Service"},
+            @{Name="Scoop 自动更新程序"; Command="scoop update *"},
+            @{Name="Winget 自动更新程序"; Command="winget upgrade --all"},
             @{Name="自定义命令"; Command=$null}
         )
 
