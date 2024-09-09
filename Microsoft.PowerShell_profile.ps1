@@ -373,8 +373,8 @@ function Show-ProfileMenu {
             @{Name="查看网络连接"; Command="Get-NetAdapter"},
             @{Name="查看进程"; Command="Get-Process"},
             @{Name="查看服务"; Command="Get-Service"},
-            @{Name="Scoop 自动更新程序"; Command="scoop update *"},
-            @{Name="Winget 自动更新程序"; Command="winget upgrade --all"},
+            @{Name="Scoop 自动更新程序"; Command={Show-UpdateProgress "Scoop 更新中" { scoop update * }}},
+            @{Name="Winget 自动更新程序"; Command={Show-UpdateProgress "Winget 更新中" { winget upgrade --all }}},
             @{Name="自定义命令"; Command=$null}
         )
 
@@ -393,8 +393,12 @@ function Show-ProfileMenu {
             }
 
             try {
-                Write-Host "执行命令: $command" -ForegroundColor Cyan
-                Invoke-Expression $command | Out-Host
+                Write-Host "执行命令: $($selectedCommand.Name)" -ForegroundColor Cyan
+                if ($command -is [scriptblock]) {
+                    & $command
+                } else {
+                    Invoke-Expression $command | Out-Host
+                }
             } catch {
                 Write-Host "执行命令时出错：$($_.Exception.Message)" -ForegroundColor Red
             }
@@ -447,7 +451,7 @@ function Show-ProfileMenu {
             @{Name="Oh My Posh"; Action={Install-OhMyPosh}},
             @{Name="Terminal-Icons"; Action={
                 try {
-                    Install-Module Terminal-Icons -Force -Scope CurrentUser -ErrorAction Stop
+                    Install-Package Terminal-Icons -Force -Scope CurrentUser -ErrorAction Stop
                 } catch {
                     Write-Host "通过 PowerShell Gallery 安装失败，尝试通过 GitHub 安装..." -ForegroundColor Yellow
                     $tempDir = Join-Path $env:TEMP "Terminal-Icons"
