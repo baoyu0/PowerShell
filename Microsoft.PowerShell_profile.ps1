@@ -227,7 +227,7 @@ function Install-PackageManagers {
 
     # 检查并安装 Chocolatey
     if (!(Get-Command choco -ErrorAction SilentlyContinue)) {
-        Write-Host "正在安装 Chocolatey..." -ForegroundColor Yellow
+        Write-Host "正在安��� Chocolatey..." -ForegroundColor Yellow
         Set-ExecutionPolicy Bypass -Scope Process -Force
         [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
         Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
@@ -290,11 +290,11 @@ function Update-Profile {
 
 function Show-ProfileMenu {
     $options = @(
-        @{Symbol="🔄"; Name="强制检查更新"; Action={Update-Profile; pause}},
-        @{Symbol="👀"; Name="查看当前配置文件"; Action={Show-Profile; pause}},
-        @{Symbol="✏️"; Name="编辑配置文件"; Action={Edit-Profile; pause}},
-        @{Symbol="🌐"; Name="切换代理"; Action={Toggle-Proxy; pause}},
-        @{Symbol="💻"; Name="查看系统信息"; Action={Get-SystemInfo; pause}},
+        @{Symbol="🔄"; Name="强制检查更新"; Action={Update-Profile}},
+        @{Symbol="👀"; Name="查看当前配置文件"; Action={Show-Profile}},
+        @{Symbol="✏️"; Name="编辑配置文件"; Action={Edit-Profile}},
+        @{Symbol="🌐"; Name="切换代理"; Action={Toggle-Proxy}},
+        @{Symbol="💻"; Name="查看系统信息"; Action={Get-SystemInfo}},
         @{Symbol="🚀"; Name="执行PowerShell命令"; Action={Invoke-CustomCommand}},
         @{Symbol="📁"; Name="快速导航"; Action={Navigate-QuickAccess}},
         @{Symbol="🔧"; Name="安装/更新工具"; Action={Manage-Tools}},
@@ -303,7 +303,7 @@ function Show-ProfileMenu {
 
     function Draw-Menu {
         Clear-Host
-        Write-Host "╔══════════════════════════════════════╗" -ForegroundColor Cyan
+        Write-Host "╔═════════════════════════════════════╗" -ForegroundColor Cyan
         Write-Host "║     PowerShell 配置文件管理菜单     ║" -ForegroundColor Cyan
         Write-Host "╚══════════════════════════════════════╝" -ForegroundColor Cyan
         for ($i = 0; $i -lt $options.Count; $i++) {
@@ -313,13 +313,39 @@ function Show-ProfileMenu {
     }
 
     function Invoke-CustomCommand {
-        $command = Read-Host "请输入要执行的PowerShell命令"
-        try {
-            Invoke-Expression $command
-        } catch {
-            Write-Host "执行命令时出错：$($_.Exception.Message)" -ForegroundColor Red
+        $commonCommands = @(
+            @{Name="查看当前目录内容"; Command="Get-ChildItem"},
+            @{Name="查看系统信息"; Command="Get-ComputerInfo"},
+            @{Name="查看网络连接"; Command="Get-NetAdapter"},
+            @{Name="查看进程"; Command="Get-Process"},
+            @{Name="查看服务"; Command="Get-Service"},
+            @{Name="自定义命令"; Command=$null}
+        )
+
+        Write-Host "常用PowerShell命令：" -ForegroundColor Cyan
+        for ($i = 0; $i -lt $commonCommands.Count; $i++) {
+            Write-Host ("[{0}] {1}" -f ($i+1), $commonCommands[$i].Name) -ForegroundColor Yellow
         }
-        pause
+
+        $choice = Read-Host "请选择要执行的命令 (1-$($commonCommands.Count))"
+        if ($choice -match '^\d+$' -and [int]$choice -ge 1 -and [int]$choice -le $commonCommands.Count) {
+            $selectedCommand = $commonCommands[[int]$choice - 1]
+            if ($selectedCommand.Command -eq $null) {
+                $command = Read-Host "请输入要执行的PowerShell命令"
+            } else {
+                $command = $selectedCommand.Command
+            }
+
+            try {
+                Write-Host "执行命令: $command" -ForegroundColor Cyan
+                Invoke-Expression $command
+            } catch {
+                Write-Host "执行命令时出错：$($_.Exception.Message)" -ForegroundColor Red
+            }
+        } else {
+            Write-Host "无效的选择。" -ForegroundColor Red
+        }
+        Read-Host "按 Enter 键返回菜单"
     }
 
     function Navigate-QuickAccess {
@@ -337,20 +363,47 @@ function Show-ProfileMenu {
             }
         }
         Write-Host "当前位置：$(Get-Location)" -ForegroundColor Green
-        pause
+        Read-Host "按 Enter 键返回菜单"
     }
 
     function Manage-Tools {
-        $tools = @("Oh My Posh", "Terminal-Icons", "PSReadLine", "Scoop", "Chocolatey")
-        $choice = Show-Menu "选择要安装/更新的工具" $tools
-        switch ($choice) {
-            0 { Install-OhMyPosh }
-            1 { Install-Module Terminal-Icons -Force }
-            2 { Install-Module PSReadLine -Force }
-            3 { Install-PackageManagers }
-            4 { Install-PackageManagers }
-        }
-        pause
+        $tools = @(
+            @{Name="Oh My Posh"; Action={Install-OhMyPosh}},
+            @{Name="Terminal-Icons"; Action={Install-Module Terminal-Icons -Force -Scope CurrentUser}},
+            @{Name="PSReadLine"; Action={Install-Module PSReadLine -Force -Scope CurrentUser}},
+            @{Name="Scoop"; Action={Install-Scoop}},
+            @{Name="Chocolatey"; Action={Install-Chocolatey}},
+            @{Name="返回主菜单"; Action={return}}
+        )
+
+        do {
+            Clear-Host
+            Write-Host "安装/更新工具" -ForegroundColor Cyan
+            Write-Host "================" -ForegroundColor Cyan
+            for ($i = 0; $i -lt $tools.Count; $i++) {
+                Write-Host ("[{0}] {1}" -f ($i+1), $tools[$i].Name) -ForegroundColor Yellow
+            }
+            Write-Host "================" -ForegroundColor Cyan
+            $choice = Read-Host "请选择要安装/更新的工具 (1-$($tools.Count))"
+
+            if ($choice -match '^\d+$' -and [int]$choice -ge 1 -and [int]$choice -le $tools.Count) {
+                $selectedTool = $tools[[int]$choice - 1]
+                if ($selectedTool.Name -eq "返回主菜单") {
+                    return
+                }
+                Write-Host "正在安装/更新 $($selectedTool.Name)..." -ForegroundColor Cyan
+                try {
+                    & $selectedTool.Action
+                    Write-Host "$($selectedTool.Name) 安装/更新完成。" -ForegroundColor Green
+                } catch {
+                    Write-Host "安装/更新 $($selectedTool.Name) 时出错：$($_.Exception.Message)" -ForegroundColor Red
+                }
+                Read-Host "按 Enter 键继续"
+            } else {
+                Write-Host "无效的选择。" -ForegroundColor Red
+                Read-Host "按 Enter 键继续"
+            }
+        } while ($true)
     }
 
     function Show-Menu($title, $options) {
@@ -370,10 +423,12 @@ function Show-ProfileMenu {
             if ($result -is [bool] -and $result) {
                 break
             }
-            pause
+            if ($choice -ne $options.Count) {  # 如果不是退出选项
+                Read-Host "按 Enter 键返回菜单"
+            }
         } else {
             Write-Host "无效的选择，请重试。" -ForegroundColor Red
-            pause
+            Read-Host "按 Enter 键继续"
         }
     } while ($true)
 }
