@@ -259,3 +259,54 @@ function Update-Profile {
         Write-Host "配置文件不存在。" -ForegroundColor Red
     }
 }
+
+function Show-ProfileMenu {
+    $options = @(
+        "1. 强制检查更新",
+        "2. 查看当前配置文件",
+        "3. 编辑配置文件",
+        "4. 切换代理",
+        "5. 查看系统信息",
+        "6. 继续使用PowerShell"
+    )
+
+    do {
+        Clear-Host
+        Write-Host "PowerShell 配置文件管理菜单" -ForegroundColor Cyan
+        Write-Host "=============================" -ForegroundColor Cyan
+        $options | ForEach-Object { Write-Host $_ }
+        Write-Host "=============================" -ForegroundColor Cyan
+        $choice = Read-Host "请输入您的选择 (1-6)"
+
+        switch ($choice) {
+            "1" { 
+                Update-Profile
+                pause
+            }
+            "2" { 
+                Show-Profile
+                pause
+            }
+            "3" { 
+                Edit-Profile
+                pause
+            }
+            "4" { 
+                Toggle-Proxy
+                pause
+            }
+            "5" { 
+                Get-SystemInfo
+                pause
+            }
+            "6" { return }
+            default { Write-Host "无效的选择，请重试。" -ForegroundColor Red; pause }
+        }
+    } while ($choice -ne "6")
+}
+
+# 移除这行，因为我们不再需要别名
+# Set-Alias -Name profile-menu -Value Show-ProfileMenu
+
+# 在配置文件末尾直接调用菜单函数
+Show-ProfileMenu
