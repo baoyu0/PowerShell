@@ -793,6 +793,23 @@ Write-Host "提示：您可以随时输入 'Show-ProfileMenu' 来再次打开配
 # 为 Show-ProfileMenu 创建别名 's'
 Set-Alias -Name s -Value Show-ProfileMenu
 
+# 添加一些有用的别名
+Set-Alias -Name which -Value Get-Command
+Set-Alias -Name touch -Value New-Item
+Set-Alias -Name open -Value Invoke-Item
+
+# 添加一个函数来管理环境变量
+function Set-EnvVar {
+    param(
+        [string]$Name,
+        [string]$Value,
+        [ValidateSet('User', 'Machine')]
+        [string]$Scope = 'User'
+    )
+    [System.Environment]::SetEnvironmentVariable($Name, $Value, $Scope)
+    Set-Item -Path "Env:$Name" -Value $Value
+}
+
 Write-Host "提示：您可以随时输入 's' 来打开配置文件管理菜单。" -ForegroundColor Cyan
 
 function Show-UpdateProgress {
