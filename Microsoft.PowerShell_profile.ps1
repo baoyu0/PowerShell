@@ -208,3 +208,54 @@ function Install-PackageManagers {
 
 # 运行安装函数
 Install-PackageManagers
+
+function Update-PowerShellProfile {
+    $githubUrl = "https://raw.githubusercontent.com/baoyu0/PowerShell/main/Microsoft.PowerShell_profile.ps1"
+    $localPath = $PROFILE
+    $lastCheckFile = Join-Path $env:TEMP "LastProfileUpdateCheck.txt"
+
+    # 检查是否需要更新（每24小时检查一次）
+    if (Test-Path $lastCheckFile) {
+        $lastCheck = Get-Content $lastCheckFile
+        if ((Get-Date) - (Get-Date $lastCheck) -lt (New-TimeSpan -Hours 24)) {
+            Write-Host "今天已经检查过更新。跳过检查。" -ForegroundColor Cyan
+            return
+        }
+    }
+
+    try {
+        # 获取GitHub上的最新内容
+        $latestContent = Invoke-WebRequest -Uri $githubUrl -UseBasicParsing | Select-Object -ExpandProperty Content
+
+        # 获取本地文件内容
+        $localContent = Get-Content -Path $localPath -Raw
+
+        # 比较内容
+        if ($latestContent -ne $localContent) {
+            Write-Host "发现新版本的配置文件。正在更新..." -ForegroundColor Yellow
+            $latestContent | Set-Content -Path $localPath -Force
+            Write-Host "配置文件已更新。请重新加载配置文件以应用更改。" -ForegroundColor Green
+            Write-Host "可以使用 '. $PROFILE' 命令重新加载。" -ForegroundColor Green
+        } else {
+            Write-Host "配置文件已是最新版本。" -ForegroundColor Green
+        }
+    } catch {
+        Write-Host "更新配置文件时出错：$($_.Exception.Message)" -ForegroundColor Red
+    }
+
+    # 更新最后检查时间
+    Get-Date | Out-File $lastCheckFile
+}
+
+# 在配置文件加载时检查更新
+Update-PowerShellProfile
+
+# 添加一个函数来手动触发更新
+function Update-Profile {
+    Update-PowerShellProfile
+    if (Test-Path $PROFILE) {
+        . $PROFILE
+    } else {
+        Write-Host "配置文件不存在。" -ForegroundColor Red
+    }
+}
