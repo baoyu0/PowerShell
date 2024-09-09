@@ -77,20 +77,41 @@ function Toggle-Proxy {
 
     do {
         Clear-Host
-        Write-Host "网络代理设置" -ForegroundColor Cyan
-        Write-Host "================" -ForegroundColor Cyan
+        $width = 60
+        $title = "网络代理设置"
+        
+        $horizontalLine = "─" * ($width - 2)
+        $topBorder    = "┌$horizontalLine┐"
+        $bottomBorder = "└$horizontalLine┘"
+        $middleBorder = "├$horizontalLine┤"
+
+        Write-Host $topBorder -ForegroundColor Cyan
+        $titlePadded = $title.PadLeft([Math]::Floor(($width + $title.Length) / 2)).PadRight($width - 2)
+        Write-Host "│$titlePadded│" -ForegroundColor Cyan
+        Write-Host $middleBorder -ForegroundColor Cyan
+        
         Show-ProxyStatus
-        Write-Host "================" -ForegroundColor Cyan
-        Write-Host "1. 开启网络代理" -ForegroundColor Yellow
-        Write-Host "2. 关闭网络代理" -ForegroundColor Yellow
-        Write-Host "0. 返回主菜单" -ForegroundColor Yellow
-        Write-Host "================" -ForegroundColor Cyan
-        $choice = Read-Host "请选择操作 (0-2)"
+        Write-Host $middleBorder -ForegroundColor Cyan
+        
+        $options = @(
+            "返回主菜单",
+            "开启网络代理",
+            "关闭网络代理"
+        )
+        
+        for ($i = 0; $i -lt $options.Count; $i++) {
+            $optionText = "[$i] $($options[$i])".PadRight($width - 3)
+            Write-Host "│ $optionText│" -ForegroundColor Yellow
+        }
+        
+        Write-Host $bottomBorder -ForegroundColor Cyan
+        
+        $choice = Read-Host "`n请选择操作 (0-$($options.Count - 1))"
 
         switch ($choice) {
+            "0" { return }
             "1" { Enable-Proxy }
             "2" { Disable-Proxy }
-            "0" { return }
             default { Write-Log "无效的选择，请重试。" -Level Warning }
         }
 
@@ -357,19 +378,25 @@ function Show-ProfileMenu {
 
     function Draw-Menu {
         Clear-Host
-        $width = 50
+        $width = 70
         $title = "PowerShell 配置文件管理菜单"
         
-        Write-Host ("╔" + "═" * ($width - 2) + "╗") -ForegroundColor Cyan
-        Write-Host ("║" + " " * [Math]::Floor(($width - $title.Length - 2) / 2) + $title + " " * [Math]::Ceiling(($width - $title.Length - 2) / 2) + "║") -ForegroundColor Cyan
-        Write-Host ("╠" + "═" * ($width - 2) + "╣") -ForegroundColor Cyan
+        $horizontalLine = "─" * ($width - 2)
+        $topBorder    = "┌$horizontalLine┐"
+        $bottomBorder = "└$horizontalLine┘"
+        $middleBorder = "├$horizontalLine┤"
+
+        Write-Host $topBorder -ForegroundColor Cyan
+        $titlePadded = $title.PadLeft([Math]::Floor(($width + $title.Length) / 2)).PadRight($width - 2)
+        Write-Host "│$titlePadded│" -ForegroundColor Cyan
+        Write-Host $middleBorder -ForegroundColor Cyan
         
-        Write-Host ("║ [0] " + $options[0].Symbol + " " + $options[0].Name.PadRight($width - 8) + "║") -ForegroundColor Yellow
-        for ($i = 1; $i -lt $options.Count; $i++) {
-            Write-Host ("║ [{0}] {1} {2}" -f $i, $options[$i].Symbol, $options[$i].Name.PadRight($width - 8) + "║") -ForegroundColor Yellow
+        for ($i = 0; $i -lt $options.Count; $i++) {
+            $optionText = "[$i] $($options[$i].Symbol) $($options[$i].Name)".PadRight($width - 3)
+            Write-Host "│ $optionText│" -ForegroundColor Yellow
         }
         
-        Write-Host ("╚" + "═" * ($width - 2) + "╝") -ForegroundColor Cyan
+        Write-Host $bottomBorder -ForegroundColor Cyan
     }
 
     function Invoke-CustomCommand {
@@ -680,19 +707,27 @@ function Show-ProfileMenu {
 
         do {
             Clear-Host
-            $width = 50
+            $width = 70
             $title = "安装/更新工具"
             
-            Write-Host ("╔" + "═" * ($width - 2) + "╗") -ForegroundColor Cyan
-            Write-Host ("║" + " " * [Math]::Floor(($width - $title.Length - 2) / 2) + $title + " " * [Math]::Ceiling(($width - $title.Length - 2) / 2) + "║") -ForegroundColor Cyan
-            Write-Host ("╠" + "═" * ($width - 2) + "╣") -ForegroundColor Cyan
+            $horizontalLine = "─" * ($width - 2)
+            $topBorder    = "┌$horizontalLine┐"
+            $bottomBorder = "└$horizontalLine┘"
+            $middleBorder = "├$horizontalLine┤"
+
+            Write-Host $topBorder -ForegroundColor Cyan
+            $titlePadded = $title.PadLeft([Math]::Floor(($width + $title.Length) / 2)).PadRight($width - 2)
+            Write-Host "│$titlePadded│" -ForegroundColor Cyan
+            Write-Host $middleBorder -ForegroundColor Cyan
             
-            Write-Host ("║ [0] 返回主菜单".PadRight($width - 1) + "║") -ForegroundColor Yellow
+            $returnText = "[0] 返回主菜单".PadRight($width - 3)
+            Write-Host "│ $returnText│" -ForegroundColor Yellow
             for ($i = 1; $i -lt $tools.Count; $i++) {
-                Write-Host ("║ [{0}] {1}" -f $i, $tools[$i].Name.PadRight($width - 6) + "║") -ForegroundColor Yellow
+                $optionText = "[$i] $($tools[$i].Name)".PadRight($width - 3)
+                Write-Host "│ $optionText│" -ForegroundColor Yellow
             }
             
-            Write-Host ("╚" + "═" * ($width - 2) + "╝") -ForegroundColor Cyan
+            Write-Host $bottomBorder -ForegroundColor Cyan
             
             $choice = Read-Host "`n请选择要安装/更新的工具 (0-$($tools.Count - 1))"
 
@@ -727,7 +762,7 @@ function Show-ProfileMenu {
 
     do {
         Draw-Menu
-        $choice = Read-Host "请输入您的选择 (0-$($options.Count - 1))，或输入 'q' 退出"
+        $choice = Read-Host "请输入您的选择 (0-$($options.Count - 1))，或按 'q' 退出"
         if ($choice -eq 'q' -or $choice -eq '0') {
             break
         }
