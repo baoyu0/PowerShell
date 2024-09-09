@@ -71,6 +71,11 @@ function Toggle-Proxy {
         Show-ProxyStatus
     }
 
+    # 初始化时自动开启代理
+    if (-not $env:http_proxy) {
+        Enable-Proxy
+    }
+
     do {
         Clear-Host
         Write-Host "网络代理设置" -ForegroundColor Cyan
@@ -572,4 +577,14 @@ function Show-UpdateProgress {
 
     Write-Host "`r✔️ $Action 完成" -ForegroundColor Green
     $result | Out-Host
+}
+
+# 确保在启动时开启代理
+if (-not $env:http_proxy) {
+    $httpPort = 20001
+    $socksPort = 20000
+    $env:http_proxy = "http://127.0.0.1:$httpPort"
+    $env:https_proxy = "http://127.0.0.1:$httpPort"
+    $env:SOCKS_SERVER = "socks5://127.0.0.1:$socksPort"
+    Write-Host "已自动开启网络代理" -ForegroundColor Green
 }
