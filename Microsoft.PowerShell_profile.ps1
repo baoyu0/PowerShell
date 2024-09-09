@@ -83,8 +83,34 @@ Import-Module -Name Microsoft.WinGet.CommandNotFound
 # 实用函数
 function .. { Set-Location .. }
 function ... { Set-Location ..\.. }
-function Edit-Profile { notepad $PROFILE }
-function Show-Profile { Get-Content $PROFILE }
+function Edit-Profile {
+    if (Test-Path $PROFILE) {
+        Write-Host "正在打开配置文件进行编辑..." -ForegroundColor Cyan
+        Start-Process notepad $PROFILE -Wait
+        Write-Host "配置文件编辑完成。请重新加载配置文件以应用更改。" -ForegroundColor Green
+        Write-Host "可以使用 '. $PROFILE' 命令重新加载。" -ForegroundColor Green
+    } else {
+        Write-Host "配置文件不存在。正在创建新的配置文件..." -ForegroundColor Yellow
+        New-Item -Path $PROFILE -ItemType File -Force
+        Start-Process notepad $PROFILE -Wait
+        Write-Host "新的配置文件已创建并打开进行编辑。" -ForegroundColor Green
+    }
+}
+function Show-Profile {
+    Write-Host "当前配置文件内容：" -ForegroundColor Cyan
+    Write-Host "================================" -ForegroundColor Cyan
+    Get-Content $PROFILE | ForEach-Object {
+        if ($_ -match '^function') {
+            Write-Host $_ -ForegroundColor Yellow
+        } elseif ($_ -match '^#') {
+            Write-Host $_ -ForegroundColor Green
+        } else {
+            Write-Host $_
+        }
+    }
+    Write-Host "================================" -ForegroundColor Cyan
+    Write-Host "配置文件路径：$PROFILE" -ForegroundColor Cyan
+}
 
 function Find-File {
     param (
@@ -98,7 +124,9 @@ function Find-File {
 }
 
 function Get-FolderSize {
-    param ($folder = ".")
+    param (
+        [string]$folder = "."
+    )
     $folderSize = (Get-ChildItem $folder -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
     Write-Output ("{0:N2} MB" -f $folderSize)
 }
