@@ -262,51 +262,93 @@ function Update-Profile {
 
 function Show-ProfileMenu {
     $options = @(
-        "1. 强制检查更新",
-        "2. 查看当前配置文件",
-        "3. 编辑配置文件",
-        "4. 切换代理",
-        "5. 查看系统信息",
-        "6. 继续使用PowerShell"
+        @{Symbol="🔄"; Name="强制检查更新"; Action={Update-Profile; pause}},
+        @{Symbol="👀"; Name="查看当前配置文件"; Action={Show-Profile; pause}},
+        @{Symbol="✏️"; Name="编辑配置文件"; Action={Edit-Profile; pause}},
+        @{Symbol="🌐"; Name="切换代理"; Action={Toggle-Proxy; pause}},
+        @{Symbol="💻"; Name="查看系统信息"; Action={Get-SystemInfo; pause}},
+        @{Symbol="🚀"; Name="执行PowerShell命令"; Action={Invoke-CustomCommand}},
+        @{Symbol="📁"; Name="快速导航"; Action={Navigate-QuickAccess}},
+        @{Symbol="🔧"; Name="安装/更新工具"; Action={Manage-Tools}},
+        @{Symbol="❌"; Name="退出菜单"; Action={return $true}}
     )
 
-    do {
+    function Draw-Menu {
         Clear-Host
-        Write-Host "PowerShell 配置文件管理菜单" -ForegroundColor Cyan
-        Write-Host "=============================" -ForegroundColor Cyan
-        $options | ForEach-Object { Write-Host $_ }
-        Write-Host "=============================" -ForegroundColor Cyan
-        $choice = Read-Host "请输入您的选择 (1-6)"
-
-        switch ($choice) {
-            "1" { 
-                Update-Profile
-                pause
-            }
-            "2" { 
-                Show-Profile
-                pause
-            }
-            "3" { 
-                Edit-Profile
-                pause
-            }
-            "4" { 
-                Toggle-Proxy
-                pause
-            }
-            "5" { 
-                Get-SystemInfo
-                pause
-            }
-            "6" { return }
-            default { Write-Host "无效的选择，请重试。" -ForegroundColor Red; pause }
+        Write-Host "╔══════════════════════════════════════╗" -ForegroundColor Cyan
+        Write-Host "║     PowerShell 配置文件管理菜单     ║" -ForegroundColor Cyan
+        Write-Host "╚══════════════════════════════════════╝" -ForegroundColor Cyan
+        for ($i = 0; $i -lt $options.Count; $i++) {
+            Write-Host ("[{0}] {1} {2}" -f ($i+1), $options[$i].Symbol, $options[$i].Name) -ForegroundColor Yellow
         }
-    } while ($choice -ne "6")
-}
+        Write-Host "══════════════════════════════════════" -ForegroundColor Cyan
+    }
 
-# 移除这行，因为我们不再需要别名
-# Set-Alias -Name profile-menu -Value Show-ProfileMenu
+    function Invoke-CustomCommand {
+        $command = Read-Host "请输入要执行的PowerShell命令"
+        try {
+            Invoke-Expression $command
+        } catch {
+            Write-Host "执行命令时出错：$($_.Exception.Message)" -ForegroundColor Red
+        }
+        pause
+    }
+
+    function Navigate-QuickAccess {
+        $locations = @("Desktop", "Documents", "Downloads", "自定义路径")
+        $choice = Show-Menu "选择要导航的位置" $locations
+        switch ($choice) {
+            {$_ -in 0..2} { Set-CommonLocation $locations[$_] }
+            3 { 
+                $path = Read-Host "请输入自定义路径"
+                if (Test-Path $path) {
+                    Set-Location $path
+                } else {
+                    Write-Host "路径不存在" -ForegroundColor Red
+                }
+            }
+        }
+        Write-Host "当前位置：$(Get-Location)" -ForegroundColor Green
+        pause
+    }
+
+    function Manage-Tools {
+        $tools = @("Oh My Posh", "Terminal-Icons", "PSReadLine", "Scoop", "Chocolatey")
+        $choice = Show-Menu "选择要安装/更新的工具" $tools
+        switch ($choice) {
+            0 { Install-OhMyPosh }
+            1 { Install-Module Terminal-Icons -Force }
+            2 { Install-Module PSReadLine -Force }
+            3 { Install-PackageManagers }
+            4 { Install-PackageManagers }
+        }
+        pause
+    }
+
+    function Show-Menu($title, $options) {
+        Write-Host $title -ForegroundColor Cyan
+        for ($i = 0; $i -lt $options.Count; $i++) {
+            Write-Host ("[{0}] {1}" -f ($i+1), $options[$i]) -ForegroundColor Yellow
+        }
+        $choice = Read-Host "请输入您的选择"
+        return [int]$choice - 1
+    }
+
+    do {
+        Draw-Menu
+        $choice = Read-Host "请输入您的选择 (1-$($options.Count))"
+        if ($choice -match '^\d+$' -and [int]$choice -ge 1 -and [int]$choice -le $options.Count) {
+            $result = & $options[[int]$choice - 1].Action
+            if ($result -is [bool] -and $result) {
+                break
+            }
+            pause
+        } else {
+            Write-Host "无效的选择，请重试。" -ForegroundColor Red
+            pause
+        }
+    } while ($true)
+}
 
 # 在配置文件末尾直接调用菜单函数
 Show-ProfileMenu
