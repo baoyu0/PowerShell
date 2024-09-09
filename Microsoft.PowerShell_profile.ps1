@@ -24,7 +24,7 @@ foreach ($module in $ModulesToImport) {
     if (Get-Module -ListAvailable -Name $module) {
         Import-Module $module
     } else {
-        Write-Warning "模块 '$module' 不可用。请运行 Install-RequiredModules 函数安装。"
+        Write-Log "模块 '$module' 不可用。请运行 Install-RequiredModules 函数安装。" -Level Warning
     }
 }
 
@@ -58,7 +58,7 @@ function Toggle-Proxy {
         $env:http_proxy = "http://127.0.0.1:$proxyPort"
         $env:https_proxy = "http://127.0.0.1:$proxyPort"
         $env:SOCKS_SERVER = "socks5://127.0.0.1:$proxyPort"
-        Write-Host "代理已开启" -ForegroundColor Green
+        Write-Log "代理已开启" -Level Info
         Show-ProxyStatus
     }
 
@@ -66,7 +66,7 @@ function Toggle-Proxy {
         $env:http_proxy = $null
         $env:https_proxy = $null
         $env:SOCKS_SERVER = $null
-        Write-Host "代理已关闭" -ForegroundColor Yellow
+        Write-Log "代理已关闭" -Level Info
         Show-ProxyStatus
     }
 
@@ -91,7 +91,7 @@ function Toggle-Proxy {
             "1" { Enable-Proxy }
             "2" { Disable-Proxy }
             "0" { return }
-            default { Write-Host "无效的选择，请重试。" -ForegroundColor Red }
+            default { Write-Log "无效的选择，请重试。" -Level Warning }
         }
 
         if ($choice -ne "0") {
@@ -99,9 +99,6 @@ function Toggle-Proxy {
         }
     } while ($choice -ne "0")
 }
-
-# Scoop代理设置
-# scoop config proxy 127.0.0.1:20000
 
 # Winget tab自动补全
 Register-ArgumentCompleter -Native -CommandName winget -ScriptBlock {
@@ -128,15 +125,15 @@ function .. { Set-Location .. }
 function ... { Set-Location ..\.. }
 function Edit-Profile {
     if (Test-Path $PROFILE) {
-        Write-Host "正在打开配置文件进行编辑..." -ForegroundColor Cyan
+        Write-Log "正在打开配置文件进行编辑..." -Level Info
         Start-Process notepad $PROFILE -Wait
-        Write-Host "配置文件编辑完成。请重新加载配置文件以应用更改。" -ForegroundColor Green
-        Write-Host "可以使用 '. $PROFILE' 命令重新加载。" -ForegroundColor Green
+        Write-Log "配置文件编辑完成。请重新加载配置文件以应用更改。" -Level Info
+        Write-Log "可以使用 '. $PROFILE' 命令重新加载。" -Level Info
     } else {
-        Write-Host "配置文件不存在。正在创建新的配置文件..." -ForegroundColor Yellow
+        Write-Log "配置文件不存在。正在创建新的配置文件..." -Level Warning
         New-Item -Path $PROFILE -ItemType File -Force
         Start-Process notepad $PROFILE -Wait
-        Write-Host "新的配置文件已创建并打开进行编辑。" -ForegroundColor Green
+        Write-Log "新的配置文件已创建并打开进行编辑。" -Level Info
     }
 }
 function Show-Profile {
@@ -193,7 +190,7 @@ function Get-SystemInfo {
         Write-Host "CPU：" $cpu.Name
         Write-Host "内存：" ("{0:N2} GB" -f ($ram.Sum / 1GB))
     } catch {
-        Write-Host "获取系统信息时出错：$($_.Exception.Message)" -ForegroundColor Red
+        Write-Log "获取系统信息时出错：$($_.Exception.Message)" -Level Error
     }
 }
 
@@ -213,7 +210,7 @@ function Set-CommonLocation {
 if (!(Get-Command goto -ErrorAction SilentlyContinue)) {
     Set-Alias -Name goto -Value Set-CommonLocation
 } else {
-    Write-Warning "别名 'goto' 已存在，未设置新别名。"
+    Write-Log "别名 'goto' 已存在，未设置新别名。" -Level Warning
 }
 
 function Install-Package {
@@ -242,7 +239,7 @@ function Install-RequiredModules {
     $requiredModules = @('Terminal-Icons', 'PSReadLine', 'Microsoft.WinGet.CommandNotFound')
     foreach ($module in $requiredModules) {
         if (!(Get-Module -ListAvailable -Name $module)) {
-            Write-Host "正在安装模块: $module" -ForegroundColor Yellow
+            Write-Log "正在安装模块: $module" -Level Info
             Install-Module -Name $module -Force -Scope CurrentUser
         }
     }
@@ -253,7 +250,7 @@ Install-RequiredModules
 
 function Install-OhMyPosh {
     if (!(Get-Command oh-my-posh -ErrorAction SilentlyContinue)) {
-        Write-Host "正在安装 Oh My Posh..." -ForegroundColor Yellow
+        Write-Log "正在安装 Oh My Posh..." -Level Info
         winget install JanDeDobbeleer.OhMyPosh -s winget
     }
 }
@@ -263,36 +260,36 @@ Install-OhMyPosh
 
 function Install-Scoop {
     if (!(Get-Command scoop -ErrorAction SilentlyContinue)) {
-        Write-Host "正在安装 Scoop..." -ForegroundColor Yellow
+        Write-Log "正在安装 Scoop..." -Level Info
         try {
             Invoke-Expression (New-Object System.Net.WebClient).DownloadString('https://get.scoop.sh')
         } catch {
-            Write-Host "安装 Scoop 时出错：$($_.Exception.Message)" -ForegroundColor Red
+            Write-Log "安装 Scoop 时出错：$($_.Exception.Message)" -Level Error
             return
         }
     } else {
-        Write-Host "Scoop 已安装，正在更新..." -ForegroundColor Yellow
+        Write-Log "Scoop 已安装，正在更新..." -Level Info
         scoop update
     }
-    Write-Host "Scoop 安装/更新完成。" -ForegroundColor Green
+    Write-Log "Scoop 安装/更新完成。" -Level Info
 }
 
 function Install-Chocolatey {
     if (!(Get-Command choco -ErrorAction SilentlyContinue)) {
-        Write-Host "正在安装 Chocolatey..." -ForegroundColor Yellow
+        Write-Log "正在安装 Chocolatey..." -Level Info
         try {
             Set-ExecutionPolicy Bypass -Scope Process -Force
             [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
             Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
         } catch {
-            Write-Host "安装 Chocolatey 时出错：$($_.Exception.Message)" -ForegroundColor Red
+            Write-Log "安装 Chocolatey 时出错：$($_.Exception.Message)" -Level Error
             return
         }
     } else {
-        Write-Host "Chocolatey 已安装，正在更新..." -ForegroundColor Yellow
+        Write-Log "Chocolatey 已安装，正在更新..." -Level Info
         choco upgrade chocolatey -y
     }
-    Write-Host "Chocolatey 安装/更新完成。" -ForegroundColor Green
+    Write-Log "Chocolatey 安装/更新完成。" -Level Info
 }
 
 function Update-PowerShellProfile {
@@ -304,7 +301,7 @@ function Update-PowerShellProfile {
     if (Test-Path $lastCheckFile) {
         $lastCheck = Get-Content $lastCheckFile
         if ($lastCheck -and (Get-Date) - [DateTime]::Parse($lastCheck) -lt (New-TimeSpan -Hours 24)) {
-            Write-Host "今天已经检查过更新。跳过检查。" -ForegroundColor Cyan
+            Write-Log "今天已经检查过更新。跳过检查。" -Level Info
             return
         }
     }
@@ -318,15 +315,15 @@ function Update-PowerShellProfile {
 
         # 比较内容
         if ($latestContent -ne $localContent) {
-            Write-Host "发现新版本的配置文件。正在更新..." -ForegroundColor Yellow
+            Write-Log "发现新版本的配置文件。正在更新..." -Level Info
             $latestContent | Set-Content -Path $localPath -Force
-            Write-Host "配置文件已更新。请重新加载配置文件以应用更改。" -ForegroundColor Green
-            Write-Host "可以使用 '. $PROFILE' 命令重新加载。" -ForegroundColor Green
+            Write-Log "配置文件已更新。请重新加载配置文件以应用更改。" -Level Info
+            Write-Log "可以使用 '. $PROFILE' 命令重新加载。" -Level Info
         } else {
-            Write-Host "配置文件已是最新版本。" -ForegroundColor Green
+            Write-Log "配置文件已是最新版本。" -Level Info
         }
     } catch {
-        Write-Host "更新配置文件时出错：$($_.Exception.Message)" -ForegroundColor Red
+        Write-Log "更新配置文件时出错：$($_.Exception.Message)" -Level Error
     }
 
     # 更新最后检查时间
@@ -342,7 +339,7 @@ function Update-Profile {
     if (Test-Path $PROFILE) {
         . $PROFILE
     } else {
-        Write-Host "配置文件不存在。" -ForegroundColor Red
+        Write-Log "配置文件不存在。" -Level Warning
     }
 }
 
@@ -360,18 +357,24 @@ function Show-ProfileMenu {
 
     function Draw-Menu {
         Clear-Host
-        Write-Host "╔═════════════════════════════════════╗" -ForegroundColor Cyan
-        Write-Host "║     PowerShell 配置文件管理菜单     ║" -ForegroundColor Cyan
-        Write-Host "╚══════════════════════════════════════╝" -ForegroundColor Cyan
-        Write-Host "[0] ❌ 退出菜单" -ForegroundColor Yellow
+        $width = 50
+        $title = "PowerShell 配置文件管理菜单"
+        
+        Write-Host ("╔" + "═" * ($width - 2) + "╗") -ForegroundColor Cyan
+        Write-Host ("║" + " " * [Math]::Floor(($width - $title.Length - 2) / 2) + $title + " " * [Math]::Ceiling(($width - $title.Length - 2) / 2) + "║") -ForegroundColor Cyan
+        Write-Host ("╠" + "═" * ($width - 2) + "╣") -ForegroundColor Cyan
+        
+        Write-Host ("║ [0] " + $options[0].Symbol + " " + $options[0].Name.PadRight($width - 8) + "║") -ForegroundColor Yellow
         for ($i = 1; $i -lt $options.Count; $i++) {
-            Write-Host ("[{0}] {1} {2}" -f $i, $options[$i].Symbol, $options[$i].Name) -ForegroundColor Yellow
+            Write-Host ("║ [{0}] {1} {2}" -f $i, $options[$i].Symbol, $options[$i].Name.PadRight($width - 8) + "║") -ForegroundColor Yellow
         }
-        Write-Host "══════════════════════════════════════" -ForegroundColor Cyan
+        
+        Write-Host ("╚" + "═" * ($width - 2) + "╝") -ForegroundColor Cyan
     }
 
     function Invoke-CustomCommand {
         $commonCommands = @(
+            @{Name="返回上一级菜单"; Command=$null},
             @{Name="查看当前目录内容"; Command="Get-ChildItem"},
             @{Name="查看系统信息"; Command={Get-SystemInfo}},
             @{Name="查看网络连接"; Command="Get-NetAdapter"},
@@ -382,13 +385,15 @@ function Show-ProfileMenu {
 
         Write-Host "常用PowerShell命令：" -ForegroundColor Cyan
         for ($i = 0; $i -lt $commonCommands.Count; $i++) {
-            Write-Host ("[{0}] {1}" -f ($i+1), $commonCommands[$i].Name) -ForegroundColor Yellow
+            Write-Host ("[{0}] {1}" -f $i, $commonCommands[$i].Name) -ForegroundColor Yellow
         }
 
-        $choice = Read-Host "请选择要执行的命令 (1-$($commonCommands.Count))"
-        if ($choice -match '^\d+$' -and [int]$choice -ge 1 -and [int]$choice -le $commonCommands.Count) {
-            $selectedCommand = $commonCommands[[int]$choice - 1]
-            if ($selectedCommand.Command -eq $null) {
+        $choice = Read-Host "请选择要执行的命令 (0-$($commonCommands.Count - 1))"
+        if ($choice -match '^\d+$' -and [int]$choice -ge 0 -and [int]$choice -lt $commonCommands.Count) {
+            $selectedCommand = $commonCommands[[int]$choice]
+            if ($choice -eq "0") {
+                return  # 返回上一级菜单
+            } elseif ($selectedCommand.Command -eq $null) {
                 $command = Read-Host "请输入要执行的PowerShell命令"
             } else {
                 $command = $selectedCommand.Command
@@ -407,7 +412,9 @@ function Show-ProfileMenu {
         } else {
             Write-Host "无效的选择。" -ForegroundColor Red
         }
-        Read-Host "按 Enter 键返回菜单"
+        if ($choice -ne "0") {
+            Read-Host "按 Enter 键返回菜单"
+        }
     }
 
     function Navigate-QuickAccess {
@@ -668,14 +675,21 @@ function Show-ProfileMenu {
 
         do {
             Clear-Host
-            Write-Host "安装/更新工具" -ForegroundColor Cyan
-            Write-Host "================" -ForegroundColor Cyan
-            Write-Host "[0] 返回主菜单" -ForegroundColor Yellow
+            $width = 50
+            $title = "安装/更新工具"
+            
+            Write-Host ("╔" + "═" * ($width - 2) + "╗") -ForegroundColor Cyan
+            Write-Host ("║" + " " * [Math]::Floor(($width - $title.Length - 2) / 2) + $title + " " * [Math]::Ceiling(($width - $title.Length - 2) / 2) + "║") -ForegroundColor Cyan
+            Write-Host ("╠" + "═" * ($width - 2) + "╣") -ForegroundColor Cyan
+            
+            Write-Host ("║ [0] 返回主菜单".PadRight($width - 1) + "║") -ForegroundColor Yellow
             for ($i = 1; $i -lt $tools.Count; $i++) {
-                Write-Host ("[{0}] {1}" -f $i, $tools[$i].Name) -ForegroundColor Yellow
+                Write-Host ("║ [{0}] {1}" -f $i, $tools[$i].Name.PadRight($width - 6) + "║") -ForegroundColor Yellow
             }
-            Write-Host "================" -ForegroundColor Cyan
-            $choice = Read-Host "请选择要安装/更新的工具 (0-$($tools.Count - 1))"
+            
+            Write-Host ("╚" + "═" * ($width - 2) + "╝") -ForegroundColor Cyan
+            
+            $choice = Read-Host "`n请选择要安装/更新的工具 (0-$($tools.Count - 1))"
 
             if ($choice -match '^\d+$' -and [int]$choice -ge 0 -and [int]$choice -lt $tools.Count) {
                 $selectedTool = $tools[[int]$choice]
@@ -713,16 +727,20 @@ function Show-ProfileMenu {
             break
         }
         if ($choice -match '^\d+$' -and [int]$choice -ge 0 -and [int]$choice -lt $options.Count) {
+            Clear-Host
+            Write-Host ("`n执行: " + $options[[int]$choice].Name) -ForegroundColor Cyan
+            Write-Host ("=" * ($options[[int]$choice].Name.Length + 8)) -ForegroundColor Cyan
             $result = & $options[[int]$choice].Action
             if ($result -is [bool] -and $result) {
                 break
             }
             if ($choice -ne '0') {  # 如果不是退出选项
+                Write-Host "`n"
                 Read-Host "按 Enter 键返回菜单"
             }
         } else {
-            Write-Host "无效的选择，请重试。" -ForegroundColor Red
-            Read-Host "按 Enter 键继续"
+            Write-Host "`n无效的选择，请重试。" -ForegroundColor Red
+            Start-Sleep -Seconds 1
         }
     } while ($true)
 }
