@@ -353,7 +353,7 @@ function Show-ProfileMenu {
 
             try {
                 Write-Host "执行命令: $command" -ForegroundColor Cyan
-                Invoke-Expression $command
+                Invoke-Expression $command | Out-Host
             } catch {
                 Write-Host "执行命令时出错：$($_.Exception.Message)" -ForegroundColor Red
             }
