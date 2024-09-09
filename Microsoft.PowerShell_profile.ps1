@@ -283,7 +283,7 @@ function Update-PowerShellProfile {
             Write-Host "配置文件已是最新版本。" -ForegroundColor Green
         }
     } catch {
-        Write-Host "更新配置文件时出错：$($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "更新配置文件时出���：$($_.Exception.Message)" -ForegroundColor Red
     }
 
     # 更新最后检查时间
@@ -503,3 +503,8 @@ function Show-ProfileMenu {
 Show-ProfileMenu
 
 Write-Host "提示：您可以随时输入 'Show-ProfileMenu' 来再次打开配置文件管理菜单。" -ForegroundColor Cyan
+
+# 为 Show-ProfileMenu 创建别名 's'
+Set-Alias -Name s -Value Show-ProfileMenu
+
+Write-Host "提示：您可以随时输入 's' 来打开配置文件管理菜单。" -ForegroundColor Cyan
