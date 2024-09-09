@@ -785,3 +785,142 @@ if (-not $env:http_proxy) {
     $env:SOCKS_SERVER = "socks5://127.0.0.1:$proxyPort"
     Write-Host "已自动开启网络代理" -ForegroundColor Green
 }
+
+# 在配置文件的开头添加：
+$modulesPath = Join-Path $PSScriptRoot "Modules"
+if (Test-Path $modulesPath) {
+    Get-ChildItem $modulesPath -Filter "*.psm1" | ForEach-Object {
+        Import-Module $_.FullName -Force
+    }
+}
+
+function Write-Log {
+    param (
+        [string]$Message,
+        [ValidateSet("Info", "Warning", "Error")]
+        [string]$Level = "Info"
+    )
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $colorMap = @{
+        "Info" = "White"
+        "Warning" = "Yellow"
+        "Error" = "Red"
+    }
+    Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $colorMap[$Level]
+}
+
+function Check-UpdateCache {
+    $cacheFile = Join-Path $env:TEMP "PowerShellProfileUpdateCache.json"
+    $cacheExpiration = 24 # 小时
+
+    if (Test-Path $cacheFile) {
+        $cache = Get-Content $cacheFile | ConvertFrom-Json
+        if ((Get-Date) - [DateTime]::Parse($cache.LastCheck) -lt (New-TimeSpan -Hours $cacheExpiration)) {
+            return $cache.NeedsUpdate
+        }
+    }
+
+    $needsUpdate = Update-PowerShellProfile
+    @{
+        LastCheck = Get-Date -Format "o"
+        NeedsUpdate = $needsUpdate
+    } | ConvertTo-Json | Set-Content $cacheFile
+
+    return $needsUpdate
+}
+
+function Add-PathVariable {
+    param (
+        [string]$Path
+    )
+    if ($env:PATH -notlike "*$Path*") {
+        $env:PATH += ";$Path"
+        Write-Log "已将 $Path 添加到 PATH 环境变量" -Level Info
+    } else {
+        Write-Log "$Path 已经在 PATH 环境变量中" -Level Warning
+    }
+}
+
+function prompt {
+    $location = Get-Location
+    $gitBranch = git rev-parse --abbrev-ref HEAD 2>$null
+    $promptString = "PS $location"
+    if ($gitBranch) {
+        $promptString += " [$gitBranch]"
+    }
+    $promptString += "> "
+    return $promptString
+}
+
+function prompt {
+    $location = Get-Location
+    $gitBranch = git rev-parse --abbrev-ref HEAD 2>$null
+    $promptString = "PS $location"
+    if ($gitBranch) {
+        $promptString += " [$gitBranch]"
+    }
+    $promptString += "> "
+    return $promptString
+}
+
+function Write-Log {
+    param (
+        [string]$Message,
+        [ValidateSet("Info", "Warning", "Error")]
+        [string]$Level = "Info"
+    )
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $colorMap = @{
+        "Info" = "White"
+        "Warning" = "Yellow"
+        "Error" = "Red"
+    }
+    Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $colorMap[$Level]
+}
+
+function Check-UpdateCache {
+    $cacheFile = Join-Path $env:TEMP "PowerShellProfileUpdateCache.json"
+    $cacheExpiration = 24 # 小时
+
+    if (Test-Path $cacheFile) {
+        $cache = Get-Content $cacheFile | ConvertFrom-Json
+        if ((Get-Date) - [DateTime]::Parse($cache.LastCheck) -lt (New-TimeSpan -Hours $cacheExpiration)) {
+            return $cache.NeedsUpdate
+        }
+    }
+
+    $needsUpdate = Update-PowerShellProfile
+    @{
+        LastCheck = Get-Date -Format "o"
+        NeedsUpdate = $needsUpdate
+    } | ConvertTo-Json | Set-Content $cacheFile
+
+    return $needsUpdate
+}
+
+function Add-PathVariable {
+    param (
+        [string]$Path
+    )
+    if ($env:PATH -notlike "*$Path*") {
+        $env:PATH += ";$Path"
+        Write-Log "已将 $Path 添加到 PATH 环境变量" -Level Info
+    } else {
+        Write-Log "$Path 已经在 PATH 环境变量中" -Level Warning
+    }
+}
+
+function Write-Log {
+    param (
+        [string]$Message,
+        [ValidateSet("Info", "Warning", "Error")]
+        [string]$Level = "Info"
+    )
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $colorMap = @{
+        "Info" = "White"
+        "Warning" = "Yellow"
+        "Error" = "Red"
+    }
+    Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $colorMap[$Level]
+}
