@@ -218,24 +218,39 @@ function Install-OhMyPosh {
 # 运行安装函数
 Install-OhMyPosh
 
-function Install-PackageManagers {
-    # 检查并安装 Scoop
+function Install-Scoop {
     if (!(Get-Command scoop -ErrorAction SilentlyContinue)) {
         Write-Host "正在安装 Scoop..." -ForegroundColor Yellow
-        Invoke-Expression (New-Object System.Net.WebClient).DownloadString('https://get.scoop.sh')
+        try {
+            Invoke-Expression (New-Object System.Net.WebClient).DownloadString('https://get.scoop.sh')
+        } catch {
+            Write-Host "安装 Scoop 时出错：$($_.Exception.Message)" -ForegroundColor Red
+            return
+        }
+    } else {
+        Write-Host "Scoop 已安装，正在更新..." -ForegroundColor Yellow
+        scoop update
     }
-
-    # 检查并安装 Chocolatey
-    if (!(Get-Command choco -ErrorAction SilentlyContinue)) {
-        Write-Host "正在安��� Chocolatey..." -ForegroundColor Yellow
-        Set-ExecutionPolicy Bypass -Scope Process -Force
-        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
-        Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
-    }
+    Write-Host "Scoop 安装/更新完成。" -ForegroundColor Green
 }
 
-# 运行安装函数
-Install-PackageManagers
+function Install-Chocolatey {
+    if (!(Get-Command choco -ErrorAction SilentlyContinue)) {
+        Write-Host "正在安装 Chocolatey..." -ForegroundColor Yellow
+        try {
+            Set-ExecutionPolicy Bypass -Scope Process -Force
+            [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+            Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+        } catch {
+            Write-Host "安装 Chocolatey 时出错：$($_.Exception.Message)" -ForegroundColor Red
+            return
+        }
+    } else {
+        Write-Host "Chocolatey 已安装，正在更新..." -ForegroundColor Yellow
+        choco upgrade chocolatey -y
+    }
+    Write-Host "Chocolatey 安装/更新完成。" -ForegroundColor Green
+}
 
 function Update-PowerShellProfile {
     $githubUrl = "https://raw.githubusercontent.com/baoyu0/PowerShell/main/Microsoft.PowerShell_profile.ps1"
