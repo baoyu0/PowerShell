@@ -418,11 +418,14 @@ function Show-ProfileMenu {
     }
 
     function Navigate-QuickAccess {
-        $locations = @("Desktop", "Documents", "Downloads", "自定义路径")
-        $choice = Show-Menu "选择要导航的置" $locations
+        $locations = @("返回主菜单", "Desktop", "Documents", "Downloads", "自定义路径")
+        $choice = Show-Menu "选择要导航的位置" $locations
         switch ($choice) {
-            {$_ -in 0..2} { Set-CommonLocation $locations[$_] }
-            3 { 
+            0 { return }  # 返回主菜单
+            1 { Set-CommonLocation "Desktop" }
+            2 { Set-CommonLocation "Documents" }
+            3 { Set-CommonLocation "Downloads" }
+            4 { 
                 $path = Read-Host "请输入自定义路径"
                 if (Test-Path $path) {
                     Set-Location $path
@@ -431,8 +434,10 @@ function Show-ProfileMenu {
                 }
             }
         }
-        Write-Host "当前位置：$(Get-Location)" -ForegroundColor Green
-        Read-Host "按 Enter 键返回菜单"
+        if ($choice -ne 0) {
+            Write-Host "当前位置：$(Get-Location)" -ForegroundColor Green
+            Read-Host "按 Enter 键返回菜单"
+        }
     }
 
     function Manage-Tools {
@@ -714,10 +719,10 @@ function Show-ProfileMenu {
     function Show-Menu($title, $options) {
         Write-Host $title -ForegroundColor Cyan
         for ($i = 0; $i -lt $options.Count; $i++) {
-            Write-Host ("[{0}] {1}" -f ($i+1), $options[$i]) -ForegroundColor Yellow
+            Write-Host ("[{0}] {1}" -f $i, $options[$i]) -ForegroundColor Yellow
         }
         $choice = Read-Host "请输入您的选择"
-        return [int]$choice - 1
+        return [int]$choice
     }
 
     do {
@@ -861,53 +866,6 @@ function prompt {
     }
     $promptString += "> "
     return $promptString
-}
-
-function Write-Log {
-    param (
-        [string]$Message,
-        [ValidateSet("Info", "Warning", "Error")]
-        [string]$Level = "Info"
-    )
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $colorMap = @{
-        "Info" = "White"
-        "Warning" = "Yellow"
-        "Error" = "Red"
-    }
-    Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $colorMap[$Level]
-}
-
-function Check-UpdateCache {
-    $cacheFile = Join-Path $env:TEMP "PowerShellProfileUpdateCache.json"
-    $cacheExpiration = 24 # 小时
-
-    if (Test-Path $cacheFile) {
-        $cache = Get-Content $cacheFile | ConvertFrom-Json
-        if ((Get-Date) - [DateTime]::Parse($cache.LastCheck) -lt (New-TimeSpan -Hours $cacheExpiration)) {
-            return $cache.NeedsUpdate
-        }
-    }
-
-    $needsUpdate = Update-PowerShellProfile
-    @{
-        LastCheck = Get-Date -Format "o"
-        NeedsUpdate = $needsUpdate
-    } | ConvertTo-Json | Set-Content $cacheFile
-
-    return $needsUpdate
-}
-
-function Add-PathVariable {
-    param (
-        [string]$Path
-    )
-    if ($env:PATH -notlike "*$Path*") {
-        $env:PATH += ";$Path"
-        Write-Log "已将 $Path 添加到 PATH 环境变量" -Level Info
-    } else {
-        Write-Log "$Path 已经在 PATH 环境变量中" -Level Warning
-    }
 }
 
 function Write-Log {
