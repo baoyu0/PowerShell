@@ -214,22 +214,10 @@ function Update-PowerShellProfile {
     $localPath = $PROFILE
     $lastCheckFile = Join-Path $env:TEMP "LastProfileUpdateCheck.txt"
 
-    # 检查本地配置文件路径是否正确
-    if (-not (Test-Path $localPath)) {
-        $correctPath = Join-Path $env:USERPROFILE "Documents\PowerShell\Microsoft.PowerShell_profile.ps1"
-        if (Test-Path $correctPath) {
-            $localPath = $correctPath
-            $PROFILE = $correctPath
-        } else {
-            Write-Host "无法找到配置文件。请确保文件路径正确。" -ForegroundColor Red
-            return
-        }
-    }
-
     # 检查是否需要更新（每24小时检查一次）
     if (Test-Path $lastCheckFile) {
         $lastCheck = Get-Content $lastCheckFile
-        if ((Get-Date) - (Get-Date $lastCheck) -lt (New-TimeSpan -Hours 24)) {
+        if ($lastCheck -and (Get-Date) - [DateTime]::Parse($lastCheck) -lt (New-TimeSpan -Hours 24)) {
             Write-Host "今天已经检查过更新。跳过检查。" -ForegroundColor Cyan
             return
         }
@@ -256,7 +244,7 @@ function Update-PowerShellProfile {
     }
 
     # 更新最后检查时间
-    Get-Date | Out-File $lastCheckFile
+    Get-Date -Format "yyyy-MM-dd HH:mm:ss" | Out-File $lastCheckFile
 }
 
 # 在配置文件加载时检查更新
@@ -270,9 +258,4 @@ function Update-Profile {
     } else {
         Write-Host "配置文件不存在。" -ForegroundColor Red
     }
-}
-
-# 添加一个函数来显示当前配置文件路径
-function Show-ProfilePath {
-    Write-Host "当前配置文件路径：$PROFILE" -ForegroundColor Cyan
 }
