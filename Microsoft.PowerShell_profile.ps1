@@ -42,8 +42,7 @@ Set-PSReadLineKeyHandler -Chord 'Ctrl+,' -ScriptBlock {
 
 # 代理设置
 function Toggle-Proxy {
-    $httpPort = 20001
-    $socksPort = 20000
+    $proxyPort = 20000
 
     function Show-ProxyStatus {
         if ($env:http_proxy) {
@@ -56,9 +55,9 @@ function Toggle-Proxy {
     }
 
     function Enable-Proxy {
-        $env:http_proxy = "http://127.0.0.1:$httpPort"
-        $env:https_proxy = "http://127.0.0.1:$httpPort"
-        $env:SOCKS_SERVER = "socks5://127.0.0.1:$socksPort"
+        $env:http_proxy = "http://127.0.0.1:$proxyPort"
+        $env:https_proxy = "http://127.0.0.1:$proxyPort"
+        $env:SOCKS_SERVER = "socks5://127.0.0.1:$proxyPort"
         Write-Host "代理已开启" -ForegroundColor Green
         Show-ProxyStatus
     }
@@ -84,21 +83,21 @@ function Toggle-Proxy {
         Write-Host "================" -ForegroundColor Cyan
         Write-Host "1. 开启网络代理" -ForegroundColor Yellow
         Write-Host "2. 关闭网络代理" -ForegroundColor Yellow
-        Write-Host "3. 返回主菜单" -ForegroundColor Yellow
+        Write-Host "0. 返回主菜单" -ForegroundColor Yellow
         Write-Host "================" -ForegroundColor Cyan
-        $choice = Read-Host "请选择操作 (1-3)"
+        $choice = Read-Host "请选择操作 (0-2)"
 
         switch ($choice) {
             "1" { Enable-Proxy }
             "2" { Disable-Proxy }
-            "3" { return }
+            "0" { return }
             default { Write-Host "无效的选择，请重试。" -ForegroundColor Red }
         }
 
-        if ($choice -ne "3") {
+        if ($choice -ne "0") {
             Read-Host "按 Enter 键继续"
         }
-    } while ($choice -ne "3")
+    } while ($choice -ne "0")
 }
 
 # Scoop代理设置
@@ -327,7 +326,7 @@ function Update-PowerShellProfile {
             Write-Host "配置文件已是最新版本。" -ForegroundColor Green
         }
     } catch {
-        Write-Host "更新配置文件时出：$($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "更新配置文件时出错：$($_.Exception.Message)" -ForegroundColor Red
     }
 
     # 更新最后检查时间
@@ -349,15 +348,14 @@ function Update-Profile {
 
 function Show-ProfileMenu {
     $options = @(
+        @{Symbol="❌"; Name="退出菜单"; Action={return $true}},
         @{Symbol="🔄"; Name="强制检查更新"; Action={Update-Profile}},
         @{Symbol="👀"; Name="查看当前配置文件"; Action={Show-Profile}},
         @{Symbol="✏️"; Name="编辑配置文件"; Action={Edit-Profile}},
         @{Symbol="🌐"; Name="切换代理"; Action={Toggle-Proxy}},
-        @{Symbol="💻"; Name="查看系统信息"; Action={Get-SystemInfo}},
         @{Symbol="🚀"; Name="执行PowerShell命令"; Action={Invoke-CustomCommand}},
         @{Symbol="📁"; Name="快速导航"; Action={Navigate-QuickAccess}},
-        @{Symbol="🔧"; Name="安装/更新工具"; Action={Manage-Tools}},
-        @{Symbol="❌"; Name="退出菜单"; Action={return $true}}
+        @{Symbol="🔧"; Name="安装/更新工具"; Action={Manage-Tools}}
     )
 
     function Draw-Menu {
@@ -365,8 +363,9 @@ function Show-ProfileMenu {
         Write-Host "╔═════════════════════════════════════╗" -ForegroundColor Cyan
         Write-Host "║     PowerShell 配置文件管理菜单     ║" -ForegroundColor Cyan
         Write-Host "╚══════════════════════════════════════╝" -ForegroundColor Cyan
-        for ($i = 0; $i -lt $options.Count; $i++) {
-            Write-Host ("[{0}] {1} {2}" -f ($i+1), $options[$i].Symbol, $options[$i].Name) -ForegroundColor Yellow
+        Write-Host "[0] ❌ 退出菜单" -ForegroundColor Yellow
+        for ($i = 1; $i -lt $options.Count; $i++) {
+            Write-Host ("[{0}] {1} {2}" -f $i, $options[$i].Symbol, $options[$i].Name) -ForegroundColor Yellow
         }
         Write-Host "══════════════════════════════════════" -ForegroundColor Cyan
     }
@@ -374,12 +373,10 @@ function Show-ProfileMenu {
     function Invoke-CustomCommand {
         $commonCommands = @(
             @{Name="查看当前目录内容"; Command="Get-ChildItem"},
-            @{Name="查看系统信息"; Command="Get-ComputerInfo"},
+            @{Name="查看系统信息"; Command={Get-SystemInfo}},
             @{Name="查看网络连接"; Command="Get-NetAdapter"},
             @{Name="查看进程"; Command="Get-Process"},
             @{Name="查看服务"; Command="Get-Service"},
-            @{Name="Scoop 自动更新程序"; Command={Show-UpdateProgress "Scoop 更新中" { scoop update * }}},
-            @{Name="Winget 自动更新程序"; Command={Show-UpdateProgress "Winget 更新中" { winget upgrade --all }}},
             @{Name="自定义命令"; Command=$null}
         )
 
@@ -452,7 +449,137 @@ function Show-ProfileMenu {
             [System.Net.WebRequest]::DefaultWebProxy = New-Object System.Net.WebProxy($env:http_proxy)
         }
 
+        function Update-AllTools {
+            param (
+                [int]$Timeout = 300  # 默认超时时间为5分钟
+            )
+
+            function Show-StepProgress {
+                param (
+                    [string]$StepName,
+                    [scriptblock]$Action
+                )
+                Write-Host "开始: $StepName" -ForegroundColor Cyan
+                $startTime = Get-Date
+                & $Action
+                $endTime = Get-Date
+                $duration = $endTime - $startTime
+                Write-Host "完成: $StepName (耗时: $($duration.ToString('mm\:ss')))" -ForegroundColor Green
+            }
+
+            Write-Host "正在检查所有工具的更新..." -ForegroundColor Yellow
+            $updatesAvailable = $false
+
+            Show-StepProgress "检查 Oh My Posh 更新" {
+                $currentVersion = (oh-my-posh --version).Trim()
+                $latestVersion = (winget show JanDeDobbeleer.OhMyPosh | Select-String "版本" | Select-Object -First 1).ToString().Split()[-1]
+                if ($currentVersion -ne $latestVersion) {
+                    Write-Host "Oh My Posh 有可用更新：$currentVersion -> $latestVersion" -ForegroundColor Green
+                    $script:updatesAvailable = $true
+                }
+            }
+
+            $modules = @('Terminal-Icons', 'PSReadLine')
+            foreach ($module in $modules) {
+                Show-StepProgress "检查 $module 更新" {
+                    $currentModule = Get-Module -Name $module -ListAvailable | Sort-Object Version -Descending | Select-Object -First 1
+                    $onlineModule = Find-Module -Name $module
+                    if ($currentModule.Version -lt $onlineModule.Version) {
+                        Write-Host "$module 有可用更新：$($currentModule.Version) -> $($onlineModule.Version)" -ForegroundColor Green
+                        $script:updatesAvailable = $true
+                    }
+                }
+            }
+
+            Show-StepProgress "检查 Scoop 更新" {
+                $scoopOutput = scoop update 2>&1
+                $scoopStatus = scoop status
+                if ($scoopStatus -match "Updates are available") {
+                    $updatesAvailable = $scoopStatus | Where-Object { $_ -match '^\S+\s+:\s+\S+\s+->\s+\S+$' }
+                    if ($updatesAvailable) {
+                        Write-Host "Scoop 有可用更新：" -ForegroundColor Green
+                        $updatesAvailable | ForEach-Object { Write-Host $_ -ForegroundColor Yellow }
+                        $script:updatesAvailable = $true
+                    }
+                } else {
+                    Write-Host "Scoop 已是最新版本。" -ForegroundColor Green
+                }
+            }
+
+            Show-StepProgress "检查 Chocolatey 更新" {
+                $chocoOutdated = choco outdated
+                if ($chocoOutdated -notmatch "All packages are up-to-date") {
+                    Write-Host "Chocolatey 有可用更新：" -ForegroundColor Green
+                    $chocoOutdated | ForEach-Object { Write-Host $_ -ForegroundColor Yellow }
+                    $script:updatesAvailable = $true
+                }
+            }
+
+            Show-StepProgress "检查 Winget 更新" {
+                $wingetUpdates = winget upgrade | Where-Object {$_ -match '^\S+\s+\S+\s+\S+\s+Available'}
+                if ($wingetUpdates) {
+                    Write-Host "Winget 有可用更新：" -ForegroundColor Green
+                    $wingetUpdates | ForEach-Object { Write-Host $_ -ForegroundColor Yellow }
+                    $script:updatesAvailable = $true
+                }
+            }
+
+            if ($updatesAvailable) {
+                $confirm = Read-Host "发现可用更新。是否要更新所有工具？(Y/N)"
+                if ($confirm -eq 'Y' -or $confirm -eq 'y') {
+                    Show-StepProgress "更新 Oh My Posh" {
+                        winget upgrade JanDeDobbeleer.OhMyPosh
+                    }
+
+                    foreach ($module in $modules) {
+                        Show-StepProgress "更新 $module" {
+                            if ($module -eq 'PSReadLine') {
+                                Write-Host "PSReadLine 需要手动更新。请在 PowerShell 重启后运行以下命令：" -ForegroundColor Cyan
+                                Write-Host "Install-Module PSReadLine -Force -Scope CurrentUser" -ForegroundColor Cyan
+                            } else {
+                                Update-Module -Name $module -Force
+                            }
+                        }
+                    }
+
+                    Show-StepProgress "更新 Scoop" {
+                        scoop update *
+                    }
+
+                    Show-StepProgress "更新 Chocolatey" {
+                        choco upgrade all -y
+                    }
+
+                    Show-StepProgress "更新 Winget" {
+                        $wingetUpdates = winget upgrade | Where-Object {$_ -match '^\S+\s+\S+\s+\S+\s+Available'}
+                        if ($wingetUpdates) {
+                            $updateCount = ($wingetUpdates | Measure-Object).Count
+                            Write-Host "发现 $updateCount 个可更新的软件包。" -ForegroundColor Cyan
+                            $currentUpdate = 0
+                            foreach ($update in $wingetUpdates) {
+                                $currentUpdate++
+                                $packageId = ($update -split '\s+')[0]
+                                Write-Progress -Activity "更新 Winget 软件包" -Status "正在更新 $packageId ($currentUpdate / $updateCount)" -PercentComplete (($currentUpdate / $updateCount) * 100)
+                                winget upgrade $packageId --accept-source-agreements
+                            }
+                            Write-Progress -Activity "更新 Winget 软件包" -Completed
+                        } else {
+                            Write-Host "所有 Winget 软件包都是最新的。" -ForegroundColor Green
+                        }
+                    }
+
+                    Write-Host "所有工具更新完成！" -ForegroundColor Green
+                } else {
+                    Write-Host "更新已取消。" -ForegroundColor Yellow
+                }
+            } else {
+                Write-Host "所有工具都是最新的。" -ForegroundColor Green
+            }
+        }
+
         $tools = @(
+            @{Name="返回主菜单"; Action={return}},
+            @{Name="检查并更新所有工具"; Action={Update-AllTools}},
             @{Name="Oh My Posh"; Action={Install-OhMyPosh}},
             @{Name="Terminal-Icons"; Action={
                 try {
@@ -482,23 +609,76 @@ function Show-ProfileMenu {
                     Write-Host "检查 PSReadLine 版本时出错：$($_.Exception.Message)" -ForegroundColor Red
                 }
             }},
-            @{Name="Scoop"; Action={Install-Scoop}},
             @{Name="Chocolatey"; Action={Install-Chocolatey}},
-            @{Name="返回主菜单"; Action={return}}
+            @{Name="Scoop 自动更新程序"; Action={
+                Write-Host "正在更新 Scoop bucket..." -ForegroundColor Yellow
+                $scoopOutput = scoop update 2>&1
+                Write-Host "正在检查 Scoop 可用更新..." -ForegroundColor Yellow
+                $updates = scoop status | Where-Object { $_ -match '^\S+\s+:\s+\S+\s+->\s+\S+$' }
+                if ($updates) {
+                    Write-Host "发现以下可用更新：" -ForegroundColor Cyan
+                    $updates | ForEach-Object { Write-Host $_ -ForegroundColor Green }
+                    $confirm = Read-Host "是否要更新这些软件包？(Y/N)"
+                    if ($confirm -eq 'Y' -or $confirm -eq 'y') {
+                        Write-Host "正在更新软件包，这可能需要一些时间..." -ForegroundColor Yellow
+                        $updateCount = ($updates | Measure-Object).Count
+                        $currentUpdate = 0
+                        foreach ($update in $updates) {
+                            $currentUpdate++
+                            $packageId = ($update -split '\s+')[0]
+                            Write-Progress -Activity "更新 Scoop 软件包" -Status "正在更新 $packageId" -PercentComplete (($currentUpdate / $updateCount) * 100)
+                            scoop update $packageId *>&1 | Out-Null
+                        }
+                        Write-Progress -Activity "更新 Scoop 软件包" -Completed
+                        Write-Host "更新完成！" -ForegroundColor Green
+                    } else {
+                        Write-Host "更新已取消。" -ForegroundColor Yellow
+                    }
+                } else {
+                    Write-Host "所有 Scoop 软件包都是最新的。" -ForegroundColor Green
+                }
+            }},
+            @{Name="Winget 自动更新程序"; Action={
+                Write-Host "正在检查可用更新..." -ForegroundColor Yellow
+                $updates = winget upgrade | Where-Object {$_ -match '^\S+\s+\S+\s+\S+\s+Available'}
+                if ($updates) {
+                    Write-Host "发现以下可用更新：" -ForegroundColor Cyan
+                    $updates | ForEach-Object { Write-Host $_ -ForegroundColor Green }
+                    $confirm = Read-Host "是否要更新这些软件包？(Y/N)"
+                    if ($confirm -eq 'Y' -or $confirm -eq 'y') {
+                        Write-Host "正在更新软件包，这可能需要一些时间..." -ForegroundColor Yellow
+                        $updateCount = ($updates | Measure-Object).Count
+                        $currentUpdate = 0
+                        foreach ($update in $updates) {
+                            $currentUpdate++
+                            $packageId = ($update -split '\s+')[0]
+                            Write-Progress -Activity "更新 Winget 软件包" -Status "正在更新 $packageId" -PercentComplete (($currentUpdate / $updateCount) * 100)
+                            winget upgrade $packageId --accept-source-agreements
+                        }
+                        Write-Progress -Activity "更新 Winget 软件包" -Completed
+                        Write-Host "更新完成！" -ForegroundColor Green
+                    } else {
+                        Write-Host "更新已取消。" -ForegroundColor Yellow
+                    }
+                } else {
+                    Write-Host "所有软件包都是最新的。" -ForegroundColor Green
+                }
+            }}
         )
 
         do {
             Clear-Host
             Write-Host "安装/更新工具" -ForegroundColor Cyan
             Write-Host "================" -ForegroundColor Cyan
-            for ($i = 0; $i -lt $tools.Count; $i++) {
-                Write-Host ("[{0}] {1}" -f ($i+1), $tools[$i].Name) -ForegroundColor Yellow
+            Write-Host "[0] 返回主菜单" -ForegroundColor Yellow
+            for ($i = 1; $i -lt $tools.Count; $i++) {
+                Write-Host ("[{0}] {1}" -f $i, $tools[$i].Name) -ForegroundColor Yellow
             }
             Write-Host "================" -ForegroundColor Cyan
-            $choice = Read-Host "请选择要安装/更新的工具 (1-$($tools.Count))"
+            $choice = Read-Host "请选择要安装/更新的工具 (0-$($tools.Count - 1))"
 
-            if ($choice -match '^\d+$' -and [int]$choice -ge 1 -and [int]$choice -le $tools.Count) {
-                $selectedTool = $tools[[int]$choice - 1]
+            if ($choice -match '^\d+$' -and [int]$choice -ge 0 -and [int]$choice -lt $tools.Count) {
+                $selectedTool = $tools[[int]$choice]
                 if ($selectedTool.Name -eq "返回主菜单") {
                     return
                 }
@@ -528,16 +708,16 @@ function Show-ProfileMenu {
 
     do {
         Draw-Menu
-        $choice = Read-Host "请输入您的选择 (1-$($options.Count))，或输入 'q' 退出"
-        if ($choice -eq 'q') {
+        $choice = Read-Host "请输入您的选择 (0-$($options.Count - 1))，或输入 'q' 退出"
+        if ($choice -eq 'q' -or $choice -eq '0') {
             break
         }
-        if ($choice -match '^\d+$' -and [int]$choice -ge 1 -and [int]$choice -le $options.Count) {
-            $result = & $options[[int]$choice - 1].Action
+        if ($choice -match '^\d+$' -and [int]$choice -ge 0 -and [int]$choice -lt $options.Count) {
+            $result = & $options[[int]$choice].Action
             if ($result -is [bool] -and $result) {
                 break
             }
-            if ($choice -ne $options.Count) {  # 如果不是退出选项
+            if ($choice -ne '0') {  # 如果不是退出选项
                 Read-Host "按 Enter 键返回菜单"
             }
         } else {
@@ -550,7 +730,7 @@ function Show-ProfileMenu {
 # 在配置文件末尾直接调用菜单函数
 Show-ProfileMenu
 
-Write-Host "提示：您可以随时输入 'Show-ProfileMenu' 来再次打开配置文件管理菜单。" -ForegroundColor Cyan
+Write-Host "提示：您可以随时输入 'Show-ProfileMenu' 来再次打开配文件管理菜单。" -ForegroundColor Cyan
 
 # 为 Show-ProfileMenu 创建别名 's'
 Set-Alias -Name s -Value Show-ProfileMenu
@@ -579,12 +759,11 @@ function Show-UpdateProgress {
     $result | Out-Host
 }
 
-# 确保在启动时开启代理
+# 确保在动时开启代理
 if (-not $env:http_proxy) {
-    $httpPort = 20001
-    $socksPort = 20000
-    $env:http_proxy = "http://127.0.0.1:$httpPort"
-    $env:https_proxy = "http://127.0.0.1:$httpPort"
-    $env:SOCKS_SERVER = "socks5://127.0.0.1:$socksPort"
+    $proxyPort = 20000
+    $env:http_proxy = "http://127.0.0.1:$proxyPort"
+    $env:https_proxy = "http://127.0.0.1:$proxyPort"
+    $env:SOCKS_SERVER = "socks5://127.0.0.1:$proxyPort"
     Write-Host "已自动开启网络代理" -ForegroundColor Green
 }
