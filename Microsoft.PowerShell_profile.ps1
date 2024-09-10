@@ -692,7 +692,7 @@ function Show-ProfileMenu {
                     $confirm = Read-Host "是否要更新所有软件包？(Y/N)"
                     if ($confirm -eq 'Y' -or $confirm -eq 'y') {
                         Write-Host "正在更新所有软件包，这可能需要一些时间..." -ForegroundColor Yellow
-                        winget upgrade --all --include-unknown
+                        winget upgrade --all
                         Write-Host "所有软件包更新完成！" -ForegroundColor Green
                     } else {
                         Write-Host "更新已取消。" -ForegroundColor Yellow
