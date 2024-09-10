@@ -678,18 +678,21 @@ function Show-ProfileMenu {
                 }
             }},
             @{Name="Winget 自动更新程序"; Action={
-                Write-Host "正在更新 Winget 源..." -ForegroundColor Yellow
-                winget source update
-
                 Write-Host "正在检查可用更新..." -ForegroundColor Yellow
-                $updates = winget upgrade | Where-Object {$_ -match '^\S+\s+\S+\s+\S+\s+Available'}
+                $updateOutput = winget update
+                $updates = $updateOutput | Select-String -Pattern '^(\S+\s+){3}\S+\s+\S+' | Where-Object { $_ -notmatch '名称\s+ID\s+版本\s+可用\s+源' }
+                
                 if ($updates) {
                     Write-Host "发现以下可用更新：" -ForegroundColor Cyan
                     $updates | ForEach-Object { Write-Host $_ -ForegroundColor Green }
-                    $confirm = Read-Host "是否要一键更新所有软件包？(Y/N)"
+                    
+                    $availableUpdatesCount = ($updates | Measure-Object).Count
+                    Write-Host "`n共有 $availableUpdatesCount 个升级可用。" -ForegroundColor Yellow
+                    
+                    $confirm = Read-Host "是否要更新所有软件包？(Y/N)"
                     if ($confirm -eq 'Y' -or $confirm -eq 'y') {
                         Write-Host "正在更新所有软件包，这可能需要一些时间..." -ForegroundColor Yellow
-                        winget upgrade --all --accept-source-agreements
+                        winget upgrade --all --include-unknown
                         Write-Host "所有软件包更新完成！" -ForegroundColor Green
                     } else {
                         Write-Host "更新已取消。" -ForegroundColor Yellow
