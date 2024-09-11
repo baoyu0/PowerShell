@@ -4,19 +4,10 @@
 .DESCRIPTION
     本模块提供了一系列用于创建一致用户界面的函数。
 .NOTES
-    版本：1.0
+    版本：1.1
     作者：Your Name
-    最后更新：2023-05-12
+    最后更新：2023-05-15
 #>
-
-$script:Colors = @{
-    Title = 'Cyan'
-    Menu = 'Yellow'
-    Success = 'Green'
-    Error = 'Red'
-    Warning = 'DarkYellow'
-    Info = 'White'
-}
 
 function Show-Menu {
     param (
@@ -55,7 +46,27 @@ function Show-ProgressBar {
         [string]$Status
     )
     
-    Write-Progress -Activity $Status -PercentComplete $PercentComplete
+    $width = $Host.UI.RawUI.WindowSize.Width - 20
+    $completedWidth = [Math]::Floor($width * ($PercentComplete / 100))
+    $remainingWidth = $width - $completedWidth
+    
+    Write-Host -NoNewline "["
+    Write-Host -NoNewline ("=" * $completedWidth) -ForegroundColor Green
+    Write-Host -NoNewline (" " * $remainingWidth)
+    Write-Host -NoNewline "] "
+    Write-Host "$PercentComplete% $Status"
 }
 
-Export-ModuleMember -Function Show-Menu, Write-StatusMessage, Show-ProgressBar
+function Show-AsciiArt {
+    $art = @"
+    ____                        ____  __         ____
+   / __ \____ _      _____     / __ \/ /_  ___  / / /
+  / /_/ / __ \ | /| / / _ \   / /_/ / __ \/ _ \/ / / 
+ / ____/ /_/ / |/ |/ /  __/  / ____/ / / /  __/ / /  
+/_/    \____/|__/|__/\___/  /_/   /_/ /_/\___/_/_/   
+                                                     
+"@
+    Write-Host $art -ForegroundColor Cyan
+}
+
+Export-ModuleMember -Function Show-Menu, Write-StatusMessage, Show-ProgressBar, Show-AsciiArt

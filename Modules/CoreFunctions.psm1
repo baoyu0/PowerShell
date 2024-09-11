@@ -76,4 +76,33 @@ function Navigate-QuickAccess {
     Write-Log "快速导航已完成。" -Level Info
 }
 
-Export-ModuleMember -Function Write-Log, Edit-Profile, Show-Profile, Update-Profile, Toggle-Proxy, Invoke-CustomCommand, Navigate-QuickAccess
+function Backup-Configuration {
+    $backupDir = Join-Path $PSScriptRoot "Backups"
+    if (-not (Test-Path $backupDir)) {
+        New-Item -ItemType Directory -Path $backupDir | Out-Null
+    }
+    $backupFile = Join-Path $backupDir "Config_$(Get-Date -Format 'yyyyMMdd_HHmmss').psd1"
+    Copy-Item -Path $configPath -Destination $backupFile
+    Write-Log "配置已备份到 $backupFile" -Level Info
+}
+
+function Restore-Configuration {
+    $backupDir = Join-Path $PSScriptRoot "Backups"
+    $backups = Get-ChildItem $backupDir -Filter "Config_*.psd1" | Sort-Object LastWriteTime -Descending
+    if ($backups.Count -eq 0) {
+        Write-Log "没有可用的备份" -Level Warning
+        return
+    }
+    $backups | ForEach-Object { Write-Host "$($_.BaseName)" }
+    $choice = Read-Host "请选择要恢复的备份文件（输入文件名，不包括.psd1）"
+    $selectedBackup = Join-Path $backupDir "$choice.psd1"
+    if (Test-Path $selectedBackup) {
+        Copy-Item -Path $selectedBackup -Destination $configPath -Force
+        Write-Log "配置已从 $selectedBackup 恢复" -Level Info
+        $script:Config = Import-PowerShellDataFile $configPath
+    } else {
+        Write-Log "选择的备份文件不存在" -Level Error
+    }
+}
+
+Export-ModuleMember -Function Write-Log, Edit-Profile, Show-Profile, Update-Profile, Toggle-Proxy, Invoke-CustomCommand, Navigate-QuickAccess, Backup-Configuration, Restore-Configuration
