@@ -740,22 +740,32 @@ function Invoke-CustomCommand {
 }
 
 function Navigate-QuickAccess {
-    $locations = @(
-        @{Name="桌面"; Path=[Environment]::GetFolderPath("Desktop")},
-        @{Name="文档"; Path=[Environment]::GetFolderPath("MyDocuments")},
-        @{Name="下载"; Path=[Environment]::GetFolderPath("UserProfile") + "\Downloads"}
-    )
-    
-    for ($i = 0; $i -lt $locations.Count; $i++) {
-        Write-Host ("[$i] " + $locations[$i].Name) -ForegroundColor Yellow
-    }
-    
-    $choice = Read-Host "请选择要导航到的位置"
-    if ($choice -match '^\d+$' -and [int]$choice -ge 0 -and [int]$choice -lt $locations.Count) {
-        Set-Location $locations[[int]$choice].Path
-    } else {
-        Write-Host "无效的选择" -ForegroundColor Red
-    }
+    do {
+        Clear-Host
+        Write-Host "快速导航" -ForegroundColor Cyan
+        Write-Host "0. 返回上级菜单"
+        Write-Host "1. 桌面"
+        Write-Host "2. 文档"
+        Write-Host "3. 下载"
+        
+        $choice = Read-Host "请选择要导航到的位置"
+        switch ($choice) {
+            "0" { return }
+            "1" { Set-Location ([Environment]::GetFolderPath("Desktop")) }
+            "2" { Set-Location ([Environment]::GetFolderPath("MyDocuments")) }
+            "3" { Set-Location ([Environment]::GetFolderPath("UserProfile") + "\Downloads") }
+            default { 
+                Write-Host "无效的选择，请重试。" -ForegroundColor Red
+                Start-Sleep -Seconds 2
+                continue
+            }
+        }
+        
+        if ($choice -ne "0") {
+            Write-Host "当前位置：$(Get-Location)" -ForegroundColor Green
+            Read-Host "按 Enter 键返回菜单"
+        }
+    } while ($true)
 }
 
 function Show-NetworkTools {
