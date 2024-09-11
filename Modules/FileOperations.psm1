@@ -3,10 +3,16 @@ function Rename-BatchFiles {
         [string]$Pattern,
         [string]$Replacement
     )
-    Get-ChildItem | Where-Object { $_.Name -match $Pattern } | ForEach-Object {
-        $newName = $_.Name -replace $Pattern, $Replacement
-        Rename-Item $_.Name $newName
-        Write-Host "已将 $($_.Name) 重命名为 $newName" -ForegroundColor Green
+    $files = Get-ChildItem | Where-Object { $_.Name -match $Pattern }
+    $totalFiles = $files.Count
+    $currentFile = 0
+    foreach ($file in $files) {
+        $currentFile++
+        $newName = $file.Name -replace $Pattern, $Replacement
+        $percentComplete = ($currentFile / $totalFiles) * 100
+        Show-ProgressBar -PercentComplete $percentComplete -Status "正在重命名文件 ($currentFile / $totalFiles)"
+        Rename-Item $file.Name $newName
+        Write-StatusMessage "已将 $($file.Name) 重命名为 $newName" -Type Success
     }
 }
 
