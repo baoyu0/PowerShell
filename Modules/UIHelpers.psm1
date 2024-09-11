@@ -25,11 +25,11 @@ function Show-Menu {
     )
     
     Clear-Host
-    Write-Host $Title -ForegroundColor $Colors.Title
-    Write-Host ("=" * $Title.Length) -ForegroundColor $Colors.Title
+    Write-Host $Title -ForegroundColor $script:Config.Colors.Title
+    Write-Host ("=" * $Title.Length) -ForegroundColor $script:Config.Colors.Title
     
     for ($i = 0; $i -lt $Options.Count; $i++) {
-        Write-Host ("[{0}] {1}" -f $i, $Options[$i]) -ForegroundColor $Colors.Menu
+        Write-Host ("[{0}] {1}" -f $i, $Options[$i]) -ForegroundColor $script:Config.Colors.Menu
     }
     
     do {
@@ -46,7 +46,7 @@ function Write-StatusMessage {
         [string]$Type = 'Info'
     )
     
-    Write-Host $Message -ForegroundColor $Colors[$Type]
+    Write-Host $Message -ForegroundColor $script:Config.Colors[$Type]
 }
 
 function Show-ProgressBar {
