@@ -364,6 +364,88 @@ function Update-Profile {
     }
 }
 
+function Show-HorizontalProgressBar {
+    param (
+        [int]$PercentComplete,
+        [int]$BarLength = 50
+    )
+    $completedLength = [math]::Floor($BarLength * ($PercentComplete / 100))
+    $remainingLength = $BarLength - $completedLength
+    $progressBar = "[" + "=" * $completedLength + " " * $remainingLength + "]"
+    Write-Host -NoNewline "`r$progressBar $PercentComplete% "
+}
+
+function Update-WingetPackages {
+    $updates = winget upgrade | Where-Object {$_ -match '^\S+\s+\S+\s+\S+\s+Available'}
+    if ($updates) {
+        $updateCount = ($updates | Measure-Object).Count
+        Write-Host "发现 $updateCount 个可更新的软件包。" -ForegroundColor Cyan
+        $currentUpdate = 0
+        foreach ($update in $updates) {
+            $currentUpdate++
+            $packageId = ($update -split '\s+')[0]
+            $percentComplete = [math]::Floor(($currentUpdate / $updateCount) * 100)
+            Show-HorizontalProgressBar -PercentComplete $percentComplete
+            winget upgrade $packageId --accept-source-agreements | Out-Null
+        }
+        Write-Host "`n所有 Winget 软件包更新完成！" -ForegroundColor Green
+    } else {
+        Write-Host "所有 Winget 软件包都是最新的。" -ForegroundColor Green
+    }
+}
+
+function Update-ScoopPackages {
+    $updates = scoop status | Where-Object { $_ -match '^\S+\s+:\s+\S+\s+->\s+\S+$' }
+    if ($updates) {
+        $updateCount = ($updates | Measure-Object).Count
+        Write-Host "发现 $updateCount 个可更新的软件包。" -ForegroundColor Cyan
+        $currentUpdate = 0
+        foreach ($update in $updates) {
+            $currentUpdate++
+            $packageId = ($update -split '\s+')[0]
+            $percentComplete = [math]::Floor(($currentUpdate / $updateCount) * 100)
+            Show-HorizontalProgressBar -PercentComplete $percentComplete
+            scoop update $packageId *>&1 | Out-Null
+        }
+        Write-Host "`n所有 Scoop 软件包更新完成！" -ForegroundColor Green
+    } else {
+        Write-Host "所有 Scoop 软件包都是最新的。" -ForegroundColor Green
+    }
+}
+
+# 在 Update-AllTools 函数中替换 Winget 和 Scoop 的更新逻辑
+function Update-AllTools {
+    // ... 其他代码保持不变 ...
+
+    Show-StepProgress "更新 Winget" {
+        Update-WingetPackages
+    }
+
+    Show-StepProgress "更新 Scoop" {
+        Update-ScoopPackages
+    }
+
+    // ... 其他代码保持不变 ...
+}
+
+# 在 Manage-Tools 函数中替换 Winget 和 Scoop 的更新逻辑
+function Manage-Tools {
+    // ... 其他代码保持不变 ...
+
+    $tools = @(
+        // ... 其他工具保持不变 ...
+        @{Name="Scoop 自动更新程序"; Action={
+            scoop update
+            Update-ScoopPackages
+        }},
+        @{Name="Winget 自动更新程序"; Action={
+            Update-WingetPackages
+        }}
+    )
+
+    // ... 其他代码保持不变 ...
+}
+
 function Show-ProfileMenu {
     $options = @(
         @{Symbol="❌"; Name="退出菜单"; Action={return $true}},
@@ -565,7 +647,7 @@ function Show-ProfileMenu {
 
             Update-Tool "Winget" {
                 Write-Host "正在检查 Winget 更新..." -ForegroundColor Yellow
-                $updateOutput = winget update
+                $updateOutput = winget upgrade
                 $updates = $updateOutput | Select-String -Pattern '^(\S+\s+){3}\S+\s+\S+' | Where-Object { $_ -notmatch '名称\s+ID\s+版本\s+可用\s+源' }
                 
                 if ($updates) {
@@ -622,10 +704,11 @@ function Show-ProfileMenu {
                             foreach ($update in $wingetUpdates) {
                                 $currentUpdate++
                                 $packageId = ($update -split '\s+')[0]
-                                Write-Progress -Activity "更新 Winget 软件包" -Status "正在更新 $packageId ($currentUpdate / $updateCount)" -PercentComplete (($currentUpdate / $updateCount) * 100)
+                                $percentComplete = [math]::Floor(($currentUpdate / $updateCount) * 100)
+                                Show-HorizontalProgressBar -PercentComplete $percentComplete
                                 winget upgrade $packageId --accept-source-agreements
                             }
-                            Write-Progress -Activity "更新 Winget 软件包" -Completed
+                            Write-Host "`n所有 Winget 软件包更新完成！" -ForegroundColor Green
                         } else {
                             Write-Host "所有 Winget 软件包都是最新的。" -ForegroundColor Green
                         }
@@ -689,10 +772,10 @@ function Show-ProfileMenu {
                         foreach ($update in $updates) {
                             $currentUpdate++
                             $packageId = ($update -split '\s+')[0]
-                            Write-Progress -Activity "更新 Scoop 软件包" -Status "正在更新 $packageId" -PercentComplete (($currentUpdate / $updateCount) * 100)
+                            $percentComplete = [math]::Floor(($currentUpdate / $updateCount) * 100)
+                            Show-HorizontalProgressBar -PercentComplete $percentComplete
                             scoop update $packageId *>&1 | Out-Null
                         }
-                        Write-Progress -Activity "更新 Scoop 软件包" -Completed
                         Write-Host "更新完成！" -ForegroundColor Green
                     } else {
                         Write-Host "更新已取消。" -ForegroundColor Yellow
@@ -703,7 +786,7 @@ function Show-ProfileMenu {
             }},
             @{Name="Winget 自动更新程序"; Action={
                 Write-Host "正在检查 Winget 更新..." -ForegroundColor Yellow
-                $updateOutput = winget update
+                $updateOutput = winget upgrade
                 $updates = $updateOutput | Select-String -Pattern '^(\S+\s+){3}\S+\s+\S+' | Where-Object { $_ -notmatch '名称\s+ID\s+版本\s+可用\s+源' }
                 
                 if ($updates) {
@@ -826,7 +909,7 @@ Set-Alias -Name open -Value Invoke-Item
 
 # 添加一个函数来管理环境变量
 function Set-EnvVar {
-    param(
+    param (
         [string]$Name,
         [string]$Value,
         [ValidateSet('User', 'Machine')]
