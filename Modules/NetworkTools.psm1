@@ -21,20 +21,20 @@ function Show-NetworkTools {
     do {
         Clear-Host
         Write-Host "网络诊断工具" -ForegroundColor Cyan
+        Write-Host "0. 返回上级菜单"
         Write-Host "1. Ping 测试"
         Write-Host "2. 路由跟踪"
         Write-Host "3. 查看 IP 配置"
-        Write-Host "0. 返回上级菜单"
         $choice = Read-Host "请选择操作"
         switch ($choice) {
+            "0" { return }
             "1" { Test-NetworkConnection }
             "2" { Get-TraceRoute }
             "3" { Get-IPConfiguration }
-            "0" { return }
             default { Write-Host "无效的选择，请重试。" -ForegroundColor Red }
         }
         if ($choice -ne "0") { Read-Host "按 Enter 键继续" }
-    } while ($choice -ne "0")
+    } while ($true)
 }
 
 function Test-NetworkConnection {

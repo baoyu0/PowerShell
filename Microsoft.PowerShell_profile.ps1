@@ -759,40 +759,52 @@ function Navigate-QuickAccess {
 }
 
 function Show-NetworkTools {
-    Write-Host "网络诊断工具" -ForegroundColor Cyan
-    Write-Host "1. Ping 测试"
-    Write-Host "2. 查看 IP 配置"
-    Write-Host "3. 查看网络连接"
-    $choice = Read-Host "请选择操作"
-    switch ($choice) {
-        "1" { $host = Read-Host "请输入要 Ping 的主机"; ping $host }
-        "2" { ipconfig /all }
-        "3" { netstat -ano }
-        default { Write-Host "无效的选择" -ForegroundColor Red }
-    }
+    do {
+        Clear-Host
+        Write-Host "网络诊断工具" -ForegroundColor Cyan
+        Write-Host "0. 返回上级菜单"
+        Write-Host "1. Ping 测试"
+        Write-Host "2. 路由跟踪"
+        Write-Host "3. 查看 IP 配置"
+        $choice = Read-Host "请选择操作"
+        switch ($choice) {
+            "0" { return }
+            "1" { Test-NetworkConnection }
+            "2" { Get-TraceRoute }
+            "3" { Get-IPConfiguration }
+            default { Write-Host "无效的选择，请重试。" -ForegroundColor Red }
+        }
+        if ($choice -ne "0") { Read-Host "按 Enter 键继续" }
+    } while ($true)
 }
 
 function Show-FileOperations {
-    Write-Host "文件操作工具" -ForegroundColor Cyan
-    Write-Host "1. 查找文件"
-    Write-Host "2. 获取文件夹大小"
-    Write-Host "3. 创建新文件"
-    $choice = Read-Host "请选择操作"
-    switch ($choice) {
-        "1" { 
-            $name = Read-Host "请输入要查找的文件名"
-            Get-ChildItem -Recurse -Filter $name | ForEach-Object { $_.FullName }
+    do {
+        Clear-Host
+        Write-Host "文件操作工具" -ForegroundColor Cyan
+        Write-Host "0. 返回上级菜单"
+        Write-Host "1. 查找文件"
+        Write-Host "2. 获取文件夹大小"
+        Write-Host "3. 创建新文件"
+        $choice = Read-Host "请选择操作"
+        switch ($choice) {
+            "0" { return }
+            "1" { 
+                $name = Read-Host "请输入要查找的文件名"
+                Get-ChildItem -Recurse -Filter $name | ForEach-Object { $_.FullName }
+            }
+            "2" { 
+                $path = Read-Host "请输入文件夹路径"
+                (Get-ChildItem $path -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
+            }
+            "3" { 
+                $name = Read-Host "请输入新文件名"
+                New-Item -ItemType File -Name $name
+            }
+            default { Write-Host "无效的选择" -ForegroundColor Red }
         }
-        "2" { 
-            $path = Read-Host "请输入文件夹路径"
-            (Get-ChildItem $path -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
-        }
-        "3" { 
-            $name = Read-Host "请输入新文件名"
-            New-Item -ItemType File -Name $name
-        }
-        default { Write-Host "无效的选择" -ForegroundColor Red }
-    }
+        if ($choice -ne "0") { Read-Host "按 Enter 键继续" }
+    } while ($true)
 }
 
 function Show-EnvVariableManagement {
