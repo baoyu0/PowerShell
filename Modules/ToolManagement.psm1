@@ -9,61 +9,58 @@
     最后更新：2023-05-11
 #>
 
+using module .\UIHelpers.psm1
+
 function Show-ToolManagement {
-    <#
-    .SYNOPSIS
-        显示工具管理菜单
-    .DESCRIPTION
-        该函数显示一个交互式菜单，允许用户选择不同的工具管理操作。
-    .EXAMPLE
-        Show-ToolManagement
-    #>
     do {
-        Clear-Host
-        Write-Host "工具管理" -ForegroundColor Cyan
-        Write-Host "0. 返回上级菜单"
-        Write-Host "1. 更新所有工具"
-        Write-Host "2. 安装/更新 Oh My Posh"
-        Write-Host "3. 安装/更新 PowerShell 7"
-        Write-Host "4. 安装/更新 Git"
-        Write-Host "5. 安装/更新 Visual Studio Code"
-        Write-Host "6. 安装/更新 Windows Terminal"
-        $choice = Read-Host "请选择操作"
+        $choice = Show-Menu -Title "工具管理" -Options @(
+            "返回上级菜单",
+            "更新所有工具",
+            "安装/更新 Oh My Posh",
+            "安装/更新 PowerShell 7",
+            "安装/更新 Git",
+            "安装/更新 Visual Studio Code",
+            "安装/更新 Windows Terminal"
+        )
+        
         switch ($choice) {
-            "0" { return }
-            "1" { Update-AllTools }
-            "2" { Install-OhMyPosh }
-            "3" { Install-PowerShell7 }
-            "4" { Install-Git }
-            "5" { Install-VSCode }
-            "6" { Install-WindowsTerminal }
-            default { Write-Host "无效的选择，请重试。" -ForegroundColor Red }
+            0 { return }
+            1 { Update-AllTools }
+            2 { Install-OhMyPosh }
+            3 { Install-PowerShell7 }
+            4 { Install-Git }
+            5 { Install-VSCode }
+            6 { Install-WindowsTerminal }
         }
-        if ($choice -ne "0") { Read-Host "按 Enter 键继续" }
+        
+        if ($choice -ne 0) { Read-Host "按 Enter 键继续" }
     } while ($true)
 }
 
 function Update-AllTools {
-    <#
-    .SYNOPSIS
-        更新所有工具
-    .DESCRIPTION
-        该函数尝试更新所有已安装的工具。
-    .EXAMPLE
-        Update-AllTools
-    #>
-    Write-Host "正在更新所有工具..." -ForegroundColor Yellow
-    try {
-        Install-OhMyPosh
-        Install-PowerShell7
-        Install-Git
-        Install-VSCode
-        Install-WindowsTerminal
-        Write-Host "所有工具更新完成。" -ForegroundColor Green
+    Write-StatusMessage "正在更新所有工具..." -Type Warning
+    $tools = @(
+        @{Name="Oh My Posh"; Action={Install-OhMyPosh}},
+        @{Name="PowerShell 7"; Action={Install-PowerShell7}},
+        @{Name="Git"; Action={Install-Git}},
+        @{Name="Visual Studio Code"; Action={Install-VSCode}},
+        @{Name="Windows Terminal"; Action={Install-WindowsTerminal}}
+    )
+    
+    for ($i = 0; $i -lt $tools.Count; $i++) {
+        $tool = $tools[$i]
+        $percentComplete = ($i + 1) / $tools.Count * 100
+        Show-ProgressBar -PercentComplete $percentComplete -Status "正在更新 $($tool.Name)"
+        
+        try {
+            & $tool.Action
+            Write-StatusMessage "$($tool.Name) 更新成功" -Type Success
+        } catch {
+            Write-StatusMessage "更新 $($tool.Name) 时发生错误：$($_.Exception.Message)" -Type Error
+        }
     }
-    catch {
-        Write-Host "更新工具时发生错误：$($_.Exception.Message)" -ForegroundColor Red
-    }
+    
+    Write-StatusMessage "所有工具更新完成。" -Type Success
 }
 
 function Install-OhMyPosh {
