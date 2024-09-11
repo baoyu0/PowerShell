@@ -681,6 +681,143 @@ if (Test-Path $modulesPath) {
     Write-Log "模块目录不存在: $modulesPath" -Level Warning
 }
 
+function Show-ProfileMenu {
+    $options = @(
+        @{Symbol="❌"; Name="退出菜单"; Action={return $true}},
+        @{Symbol="🔄"; Name="强制检查更新"; Action={Update-Profile}},
+        @{Symbol="👀"; Name="查看当前配置文件"; Action={Show-Profile}},
+        @{Symbol="✏️"; Name="编辑配置文件"; Action={Edit-Profile}},
+        @{Symbol="🌐"; Name="切换代理"; Action={Toggle-Proxy}},
+        @{Symbol="🚀"; Name="执行PowerShell命令"; Action={Invoke-CustomCommand}},
+        @{Symbol="📁"; Name="快速导航"; Action={Navigate-QuickAccess}},
+        @{Symbol="🔧"; Name="安装/更新工具"; Action={Manage-Tools}},
+        @{Symbol="🌐"; Name="网络诊断工具"; Action={Show-NetworkTools}},
+        @{Symbol="📁"; Name="文件操作工具"; Action={Show-FileOperations}},
+        @{Symbol="🔧"; Name="环境变量管理"; Action={Show-EnvVariableManagement}}
+    )
+
+    do {
+        Clear-Host
+        Write-Host "PowerShell 配置文件管理菜单" -ForegroundColor Cyan
+        Write-Host "================================" -ForegroundColor Cyan
+        
+        for ($i = 0; $i -lt $options.Count; $i++) {
+            Write-Host ("[$i] " + $options[$i].Symbol + " " + $options[$i].Name) -ForegroundColor Yellow
+        }
+        
+        $choice = Read-Host "`n请输入您的选择 (0-$($options.Count - 1))，或按 'q' 退出"
+        if ($choice -eq 'q' -or $choice -eq '0') {
+            break
+        }
+        if ($choice -match '^\d+$' -and [int]$choice -ge 0 -and [int]$choice -lt $options.Count) {
+            Clear-Host
+            Write-Host ("`n执行: " + $options[[int]$choice].Name) -ForegroundColor Cyan
+            Write-Host ("=" * ($options[[int]$choice].Name.Length + 8)) -ForegroundColor Cyan
+            $result = & $options[[int]$choice].Action
+            if ($result -is [bool] -and $result) {
+                break
+            }
+            if ($choice -ne '0') {
+                Write-Host "`n"
+                Read-Host "按 Enter 键返回菜单"
+            }
+        } else {
+            Write-Host "`n无效的选择，请重试。" -ForegroundColor Red
+            Start-Sleep -Seconds 1
+        }
+    } while ($true)
+}
+
+function Update-Profile {
+    # 实现更新配置文件的逻辑
+    Write-Host "正在检查更新..." -ForegroundColor Cyan
+    # 这里添加实际的更新逻辑
+}
+
+function Invoke-CustomCommand {
+    $command = Read-Host "请输入要执行的 PowerShell 命令"
+    Invoke-Expression $command
+}
+
+function Navigate-QuickAccess {
+    $locations = @(
+        @{Name="桌面"; Path=[Environment]::GetFolderPath("Desktop")},
+        @{Name="文档"; Path=[Environment]::GetFolderPath("MyDocuments")},
+        @{Name="下载"; Path=[Environment]::GetFolderPath("UserProfile") + "\Downloads"}
+    )
+    
+    for ($i = 0; $i -lt $locations.Count; $i++) {
+        Write-Host ("[$i] " + $locations[$i].Name) -ForegroundColor Yellow
+    }
+    
+    $choice = Read-Host "请选择要导航到的位置"
+    if ($choice -match '^\d+$' -and [int]$choice -ge 0 -and [int]$choice -lt $locations.Count) {
+        Set-Location $locations[[int]$choice].Path
+    } else {
+        Write-Host "无效的选择" -ForegroundColor Red
+    }
+}
+
+function Show-NetworkTools {
+    Write-Host "网络诊断工具" -ForegroundColor Cyan
+    Write-Host "1. Ping 测试"
+    Write-Host "2. 查看 IP 配置"
+    Write-Host "3. 查看网络连接"
+    $choice = Read-Host "请选择操作"
+    switch ($choice) {
+        "1" { $host = Read-Host "请输入要 Ping 的主机"; ping $host }
+        "2" { ipconfig /all }
+        "3" { netstat -ano }
+        default { Write-Host "无效的选择" -ForegroundColor Red }
+    }
+}
+
+function Show-FileOperations {
+    Write-Host "文件操作工具" -ForegroundColor Cyan
+    Write-Host "1. 查找文件"
+    Write-Host "2. 获取文件夹大小"
+    Write-Host "3. 创建新文件"
+    $choice = Read-Host "请选择操作"
+    switch ($choice) {
+        "1" { 
+            $name = Read-Host "请输入要查找的文件名"
+            Get-ChildItem -Recurse -Filter $name | ForEach-Object { $_.FullName }
+        }
+        "2" { 
+            $path = Read-Host "请输入文件夹路径"
+            (Get-ChildItem $path -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
+        }
+        "3" { 
+            $name = Read-Host "请输入新文件名"
+            New-Item -ItemType File -Name $name
+        }
+        default { Write-Host "无效的选择" -ForegroundColor Red }
+    }
+}
+
+function Show-EnvVariableManagement {
+    Write-Host "环境变量管理" -ForegroundColor Cyan
+    Write-Host "1. 查看所有环境变量"
+    Write-Host "2. 设置环境变量"
+    Write-Host "3. 删除环境变量"
+    $choice = Read-Host "请选择操作"
+    switch ($choice) {
+        "1" { Get-ChildItem Env: | Format-Table -AutoSize }
+        "2" { 
+            $name = Read-Host "请输入环境变量名"
+            $value = Read-Host "请输入环境变量值"
+            [Environment]::SetEnvironmentVariable($name, $value, "User")
+        }
+        "3" { 
+            $name = Read-Host "请输入要删除的环境变量名"
+            [Environment]::SetEnvironmentVariable($name, $null, "User")
+        }
+        default { Write-Host "无效的选择" -ForegroundColor Red }
+    }
+}
+
+Show-ProfileMenu
+
 Manage-Tools
 
 function Show-ProfileMenu {
