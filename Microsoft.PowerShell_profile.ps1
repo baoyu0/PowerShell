@@ -376,19 +376,31 @@ function Show-HorizontalProgressBar {
 }
 
 function Update-WingetPackages {
-    $updates = winget upgrade | Where-Object {$_ -match '^\S+\s+\S+\s+\S+\s+Available'}
+    Write-Host "正在检查 Winget 更新..." -ForegroundColor Yellow
+    $updateOutput = winget upgrade
+    $updates = $updateOutput | Select-String -Pattern '^(\S+\s+){3}\S+\s+\S+' | Where-Object { $_ -notmatch '名称\s+ID\s+版本\s+可用\s+源' }
+    
     if ($updates) {
         $updateCount = ($updates | Measure-Object).Count
         Write-Host "发现 $updateCount 个可更新的软件包。" -ForegroundColor Cyan
-        $currentUpdate = 0
-        foreach ($update in $updates) {
-            $currentUpdate++
-            $packageId = ($update -split '\s+')[0]
-            $percentComplete = [math]::Floor(($currentUpdate / $updateCount) * 100)
-            Show-HorizontalProgressBar -PercentComplete $percentComplete
-            winget upgrade $packageId --accept-source-agreements | Out-Null
+        $updates | ForEach-Object { Write-Host $_ -ForegroundColor Green }
+        
+        $confirm = Read-Host "是否要更新所有软件包？(Y/N)"
+        if ($confirm -eq 'Y' -or $confirm -eq 'y') {
+            Write-Host "正在更新所有软件包，这可能需要一些时间..." -ForegroundColor Yellow
+            $currentUpdate = 0
+            foreach ($update in $updates) {
+                $currentUpdate++
+                $packageId = ($update -split '\s+')[0]
+                $percentComplete = [math]::Floor(($currentUpdate / $updateCount) * 100)
+                Write-Host "`r正在更新 $packageId ($currentUpdate / $updateCount)" -NoNewline
+                Show-HorizontalProgressBar -PercentComplete $percentComplete
+                winget upgrade $packageId --accept-source-agreements | Out-Null
+            }
+            Write-Host "`n所有 Winget 软件包更新完成！" -ForegroundColor Green
+        } else {
+            Write-Host "更新已取消。" -ForegroundColor Yellow
         }
-        Write-Host "`n所有 Winget 软件包更新完成！" -ForegroundColor Green
     } else {
         Write-Host "所有 Winget 软件包都是最新的。" -ForegroundColor Green
     }
@@ -413,38 +425,182 @@ function Update-ScoopPackages {
     }
 }
 
-# 在 Update-AllTools 函数中替换 Winget 和 Scoop 的更新逻辑
 function Update-AllTools {
-    // ... 其他代码保持不变 ...
-
-    Show-StepProgress "更新 Winget" {
-        Update-WingetPackages
-    }
-
-    Show-StepProgress "更新 Scoop" {
-        Update-ScoopPackages
-    }
-
-    // ... 其他代码保持不变 ...
-}
-
-# 在 Manage-Tools 函数中替换 Winget 和 Scoop 的更新逻辑
-function Manage-Tools {
-    // ... 其他代码保持不变 ...
-
     $tools = @(
-        // ... 其他工具保持不变 ...
-        @{Name="Scoop 自动更新程序"; Action={
-            scoop update
-            Update-ScoopPackages
-        }},
-        @{Name="Winget 自动更新程序"; Action={
-            Update-WingetPackages
-        }}
+        @{Name="Oh My Posh"; Action={Update-OhMyPosh}},
+        @{Name="Terminal-Icons"; Action={Update-TerminalIcons}},
+        @{Name="PSReadLine"; Action={Update-PSReadLine}},
+        @{Name="Scoop"; Action={Update-Scoop}},
+        @{Name="Chocolatey"; Action={Update-Chocolatey}},
+        @{Name="Winget"; Action={Update-Winget}}
     )
 
-    // ... 其他代码保持不变 ...
+    $totalTools = $tools.Count
+    $currentTool = 0
+
+    foreach ($tool in $tools) {
+        $currentTool++
+        $overallProgress = [math]::Floor(($currentTool / $totalTools) * 100)
+        
+        Write-Host "`n正在更新 $($tool.Name) ($currentTool / $totalTools)" -ForegroundColor Cyan
+        Show-HorizontalProgressBar -PercentComplete $overallProgress
+        
+        & $tool.Action
+    }
+
+    Write-Host "`n所有工具更新完成！" -ForegroundColor Green
 }
+
+function Update-OhMyPosh {
+    $currentVersion = (oh-my-posh --version).Trim()
+    $latestVersion = (winget show JanDeDobbeleer.OhMyPosh | Select-String "版本" | Select-Object -First 1).ToString().Split()[-1]
+    if ($currentVersion -ne $latestVersion) {
+        Write-Host "正在更新 Oh My Posh: $currentVersion -> $latestVersion" -ForegroundColor Yellow
+        winget upgrade JanDeDobbeleer.OhMyPosh --accept-source-agreements
+    } else {
+        Write-Host "Oh My Posh 已是最新版本 ($currentVersion)。" -ForegroundColor Green
+    }
+}
+
+function Update-TerminalIcons {
+    $currentModule = Get-Module -Name Terminal-Icons -ListAvailable | Sort-Object Version -Descending | Select-Object -First 1
+    $onlineModule = Find-Module -Name Terminal-Icons
+    if ($currentModule.Version -lt $onlineModule.Version) {
+        Write-Host "正在更新 Terminal-Icons: $($currentModule.Version) -> $($onlineModule.Version)" -ForegroundColor Yellow
+        Update-Module -Name Terminal-Icons -Force
+    } else {
+        Write-Host "Terminal-Icons 已是最新版本 ($($currentModule.Version))。" -ForegroundColor Green
+    }
+}
+
+function Update-PSReadLine {
+    $currentVersion = (Get-Module PSReadLine).Version
+    $latestVersion = (Find-Module PSReadLine).Version
+    if ($currentVersion -lt $latestVersion) {
+        Write-Host "PSReadLine 需要更新: $currentVersion -> $latestVersion" -ForegroundColor Yellow
+        Write-Host "请在 PowerShell 重启后运行以下命令：" -ForegroundColor Cyan
+        Write-Host "Install-Module PSReadLine -Force -Scope CurrentUser" -ForegroundColor Cyan
+    } else {
+        Write-Host "PSReadLine 已是最新版本 ($currentVersion)。" -ForegroundColor Green
+    }
+}
+
+function Update-Scoop {
+    Write-Host "正在更新 Scoop..." -ForegroundColor Yellow
+    scoop update
+    $updates = scoop status | Where-Object { $_ -match '^\S+\s+:\s+\S+\s+->\s+\S+$' }
+    if ($updates) {
+        Write-Host "发现以下可用更新：" -ForegroundColor Cyan
+        $updates | ForEach-Object { Write-Host $_ -ForegroundColor Green }
+        $updateCount = ($updates | Measure-Object).Count
+        $currentUpdate = 0
+        foreach ($update in $updates) {
+            $currentUpdate++
+            $packageId = ($update -split '\s+')[0]
+            $percentComplete = [math]::Floor(($currentUpdate / $updateCount) * 100)
+            Write-Host "`r正在更新 $packageId ($currentUpdate / $updateCount)" -NoNewline
+            Show-HorizontalProgressBar -PercentComplete $percentComplete
+            scoop update $packageId *>&1 | Out-Null
+        }
+        Write-Host "`n所有 Scoop 软件包更新完成！" -ForegroundColor Green
+    } else {
+        Write-Host "所有 Scoop 软件包都是最新的。" -ForegroundColor Green
+    }
+}
+
+function Update-Chocolatey {
+    Write-Host "正在更新 Chocolatey..." -ForegroundColor Yellow
+    choco upgrade chocolatey -y
+    $chocoOutdated = choco outdated
+    if ($chocoOutdated -notmatch "All packages are up-to-date") {
+        Write-Host "发现以下可用更新：" -ForegroundColor Cyan
+        $chocoOutdated | ForEach-Object { Write-Host $_ -ForegroundColor Green }
+        choco upgrade all -y
+    } else {
+        Write-Host "所有 Chocolatey 软件包都是最新的。" -ForegroundColor Green
+    }
+}
+
+function Update-Winget {
+    Write-Host "正在检查 Winget 更新..." -ForegroundColor Yellow
+    $updateOutput = winget upgrade
+    $updates = $updateOutput | Select-String -Pattern '^(\S+\s+){3}\S+\s+\S+' | Where-Object { $_ -notmatch '名称\s+ID\s+版本\s+可用\s+源' }
+    
+    if ($updates) {
+        $updateCount = ($updates | Measure-Object).Count
+        Write-Host "发现 $updateCount 个可更新的软件包。" -ForegroundColor Cyan
+        $updates | ForEach-Object { Write-Host $_ -ForegroundColor Green }
+        
+        Write-Host "正在更新所有软件包..." -ForegroundColor Yellow
+        $currentUpdate = 0
+        foreach ($update in $updates) {
+            $currentUpdate++
+            $packageId = ($update -split '\s+')[0]
+            $percentComplete = [math]::Floor(($currentUpdate / $updateCount) * 100)
+            Write-Host "`r正在更新 $packageId ($currentUpdate / $updateCount)" -NoNewline
+            Show-HorizontalProgressBar -PercentComplete $percentComplete
+            winget upgrade $packageId --accept-source-agreements | Out-Null
+        }
+        Write-Host "`n所有 Winget 软件包更新完成！" -ForegroundColor Green
+    } else {
+        Write-Host "所有 Winget 软件包都是最新的。" -ForegroundColor Green
+    }
+}
+
+function Manage-Tools {
+    do {
+        Clear-Host
+        $width = 60
+        $title = "安装/更新工具"
+        
+        $horizontalLine = "─" * ($width - 2)
+        $topBorder    = "┌$horizontalLine┐"
+        $bottomBorder = "└$horizontalLine┘"
+        $middleBorder = "├$horizontalLine┤"
+
+        Write-Host $topBorder -ForegroundColor Cyan
+        $titlePadded = $title.PadLeft([Math]::Floor(($width + $title.Length) / 2)).PadRight($width - 2)
+        Write-Host "│$titlePadded│" -ForegroundColor Cyan
+        Write-Host $middleBorder -ForegroundColor Cyan
+        
+        $tools = @(
+            @{Name="返回主菜单"; Action={return}},
+            @{Name="检查并更新所有工具"; Action={Update-AllTools}},
+            @{Name="Oh My Posh"; Action={Update-OhMyPosh}},
+            @{Name="Terminal-Icons"; Action={Update-TerminalIcons}},
+            @{Name="PSReadLine"; Action={Update-PSReadLine}},
+            @{Name="Chocolatey"; Action={Update-Chocolatey}},
+            @{Name="Scoop 自动更新程序"; Action={
+                scoop update
+                Update-ScoopPackages
+            }},
+            @{Name="Winget 自动更新程序"; Action={Update-WingetPackages}}
+        )
+        
+        for ($i = 0; $i -lt $tools.Count; $i++) {
+            $optionText = "[$i] $($tools[$i].Name)".PadRight($width - 3)
+            Write-Host "│ $optionText│" -ForegroundColor Yellow
+        }
+        
+        Write-Host $bottomBorder -ForegroundColor Cyan
+        
+        $choice = Read-Host "`n请选择要安装/更新的工具 (0-$($tools.Count - 1))"
+
+        if ([int]::TryParse($choice, [ref]$null) -and $choice -ge 0 -and $choice -lt $tools.Count) {
+            $selectedTool = $tools[$choice]
+            Write-Host "正在安装/更新 $($selectedTool.Name)..." -ForegroundColor Yellow
+            & $selectedTool.Action
+        } else {
+            Write-Log "无效的选择，请重试。" -Level Warning
+        }
+
+        if ($choice -ne "0") {
+            Read-Host "按 Enter 键继续"
+        }
+    } while ($choice -ne "0")
+}
+
+Manage-Tools
 
 function Show-ProfileMenu {
     $options = @(
@@ -700,6 +856,9 @@ function Show-ProfileMenu {
                         if ($wingetUpdates) {
                             $updateCount = ($wingetUpdates | Measure-Object).Count
                             Write-Host "发现 $updateCount 个可更新的软件包。" -ForegroundColor Cyan
+                            $wingetUpdates | ForEach-Object { Write-Host $_ -ForegroundColor Green }
+                            
+                            Write-Host "正在更新所有软件包，这可能需要一些时间..." -ForegroundColor Yellow
                             $currentUpdate = 0
                             foreach ($update in $wingetUpdates) {
                                 $currentUpdate++
@@ -784,34 +943,7 @@ function Show-ProfileMenu {
                     Write-Host "所有 Scoop 软件包都是最新的。" -ForegroundColor Green
                 }
             }},
-            @{Name="Winget 自动更新程序"; Action={
-                Write-Host "正在检查 Winget 更新..." -ForegroundColor Yellow
-                $updateOutput = winget upgrade
-                $updates = $updateOutput | Select-String -Pattern '^(\S+\s+){3}\S+\s+\S+' | Where-Object { $_ -notmatch '名称\s+ID\s+版本\s+可用\s+源' }
-                
-                if ($updates) {
-                    Write-Host "发现以下可用更新：" -ForegroundColor Cyan
-                    $updates | ForEach-Object { Write-Host $_ -ForegroundColor Green }
-                    
-                    $availableUpdatesCount = ($updates | Measure-Object).Count
-                    Write-Host "`n共有 $availableUpdatesCount 个升级可用。" -ForegroundColor Yellow
-                    
-                    $confirm = Read-Host "是否要更新所有软件包？(Y/N)"
-                    if ($confirm -eq 'Y' -or $confirm -eq 'y') {
-                        Write-Host "正在更新所有软件包，这可能需要一些时间..." -ForegroundColor Yellow
-                        $upgradeOutput = winget upgrade --all --accept-source-agreements
-                        if ($LASTEXITCODE -eq 0) {
-                            Write-Host "所有软件包更新完成！" -ForegroundColor Green
-                        } else {
-                            Write-Host "更新过程中遇到一些问题。请检查上面的输出。" -ForegroundColor Yellow
-                        }
-                    } else {
-                        Write-Host "更新已取消。" -ForegroundColor Yellow
-                    }
-                } else {
-                    Write-Host "所有 Winget 软件包都是最新的。" -ForegroundColor Green
-                }
-            }}
+            @{Name="Winget 自动更新程序"; Action={Update-WingetPackages}}
         )
 
         do {
