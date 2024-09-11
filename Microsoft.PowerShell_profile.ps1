@@ -509,7 +509,16 @@ function Show-ProfileMenu {
             Write-Host "正在检查所有工具的更新..." -ForegroundColor Yellow
             $updatesAvailable = $false
 
-            Show-StepProgress "检查 Oh My Posh 更新" {
+            function Update-Tool {
+                param (
+                    [string]$ToolName,
+                    [scriptblock]$UpdateAction
+                )
+                Write-Host "正在检查 $ToolName 更新..." -ForegroundColor Yellow
+                & $UpdateAction
+            }
+
+            Update-Tool "Oh My Posh" {
                 $currentVersion = (oh-my-posh --version).Trim()
                 $latestVersion = (winget show JanDeDobbeleer.OhMyPosh | Select-String "版本" | Select-Object -First 1).ToString().Split()[-1]
                 if ($currentVersion -ne $latestVersion) {
@@ -520,7 +529,7 @@ function Show-ProfileMenu {
 
             $modules = @('Terminal-Icons', 'PSReadLine')
             foreach ($module in $modules) {
-                Show-StepProgress "检查 $module 更新" {
+                Update-Tool $module {
                     $currentModule = Get-Module -Name $module -ListAvailable | Sort-Object Version -Descending | Select-Object -First 1
                     $onlineModule = Find-Module -Name $module
                     if ($currentModule.Version -lt $onlineModule.Version) {
@@ -530,7 +539,7 @@ function Show-ProfileMenu {
                 }
             }
 
-            Show-StepProgress "检查 Scoop 更新" {
+            Update-Tool "Scoop" {
                 $scoopOutput = scoop update 2>&1
                 $scoopStatus = scoop status
                 if ($scoopStatus -match "Updates are available") {
@@ -545,7 +554,7 @@ function Show-ProfileMenu {
                 }
             }
 
-            Show-StepProgress "检查 Chocolatey 更新" {
+            Update-Tool "Chocolatey" {
                 $chocoOutdated = choco outdated
                 if ($chocoOutdated -notmatch "All packages are up-to-date") {
                     Write-Host "Chocolatey 有可用更新：" -ForegroundColor Green
@@ -554,12 +563,27 @@ function Show-ProfileMenu {
                 }
             }
 
-            Show-StepProgress "检查 Winget 更新" {
-                $wingetUpdates = winget upgrade | Where-Object {$_ -match '^\S+\s+\S+\s+\S+\s+Available'}
-                if ($wingetUpdates) {
-                    Write-Host "Winget 有可用更新：" -ForegroundColor Green
-                    $wingetUpdates | ForEach-Object { Write-Host $_ -ForegroundColor Yellow }
-                    $script:updatesAvailable = $true
+            Update-Tool "Winget" {
+                Write-Host "正在检查 Winget 更新..." -ForegroundColor Yellow
+                $updateOutput = winget update
+                $updates = $updateOutput | Select-String -Pattern '^(\S+\s+){3}\S+\s+\S+' | Where-Object { $_ -notmatch '名称\s+ID\s+版本\s+可用\s+源' }
+                
+                if ($updates) {
+                    Write-Host "发现以下可用更新：" -ForegroundColor Cyan
+                    $updates | ForEach-Object { Write-Host $_ -ForegroundColor Green }
+                    
+                    $availableUpdatesCount = ($updates | Measure-Object).Count
+                    Write-Host "`n共有 $availableUpdatesCount 个升级可用。" -ForegroundColor Yellow
+                    
+                    Write-Host "正在更新所有软件包，这可能需要一些时间..." -ForegroundColor Yellow
+                    $upgradeOutput = winget upgrade --all --accept-source-agreements
+                    if ($LASTEXITCODE -eq 0) {
+                        Write-Host "所有软件包更新完成！" -ForegroundColor Green
+                    } else {
+                        Write-Host "更新过程中遇到一些问题。请检查上面的输出。" -ForegroundColor Yellow
+                    }
+                } else {
+                    Write-Host "所有 Winget 软件包都是最新的。" -ForegroundColor Green
                 }
             }
 
@@ -678,7 +702,7 @@ function Show-ProfileMenu {
                 }
             }},
             @{Name="Winget 自动更新程序"; Action={
-                Write-Host "正在检查可用更新..." -ForegroundColor Yellow
+                Write-Host "正在检查 Winget 更新..." -ForegroundColor Yellow
                 $updateOutput = winget update
                 $updates = $updateOutput | Select-String -Pattern '^(\S+\s+){3}\S+\s+\S+' | Where-Object { $_ -notmatch '名称\s+ID\s+版本\s+可用\s+源' }
                 
@@ -692,7 +716,7 @@ function Show-ProfileMenu {
                     $confirm = Read-Host "是否要更新所有软件包？(Y/N)"
                     if ($confirm -eq 'Y' -or $confirm -eq 'y') {
                         Write-Host "正在更新所有软件包，这可能需要一些时间..." -ForegroundColor Yellow
-                        $upgradeOutput = winget upgrade --all
+                        $upgradeOutput = winget upgrade --all --accept-source-agreements
                         if ($LASTEXITCODE -eq 0) {
                             Write-Host "所有软件包更新完成！" -ForegroundColor Green
                         } else {
@@ -702,7 +726,7 @@ function Show-ProfileMenu {
                         Write-Host "更新已取消。" -ForegroundColor Yellow
                     }
                 } else {
-                    Write-Host "所有软件包都是最新的。" -ForegroundColor Green
+                    Write-Host "所有 Winget 软件包都是最新的。" -ForegroundColor Green
                 }
             }}
         )
