@@ -549,6 +549,21 @@ function Update-Winget {
 }
 
 function Manage-Tools {
+    $tools = @(
+        @{Name="返回主菜单"; Action={return $true}},
+        @{Name="检查并更新所有工具"; Action={Update-AllTools}},
+        @{Name="Oh My Posh"; Action={Install-OhMyPosh}},
+        @{Name="Terminal-Icons"; Action={Install-Module -Name Terminal-Icons -Force}},
+        @{Name="PSReadLine"; Action={Install-Module -Name PSReadLine -Force}},
+        @{Name="Chocolatey"; Action={Install-Chocolatey}},
+        @{Name="Scoop"; Action={Install-Scoop}},
+        @{Name="Winget"; Action={Install-Winget}},
+        @{Name="PowerShell 7"; Action={Install-PowerShell7}},
+        @{Name="Git"; Action={Install-Git}},
+        @{Name="Visual Studio Code"; Action={Install-VSCode}},
+        @{Name="Windows Terminal"; Action={Install-WindowsTerminal}}
+    )
+
     do {
         Clear-Host
         $width = 60
@@ -564,20 +579,6 @@ function Manage-Tools {
         Write-Host "│$titlePadded│" -ForegroundColor Cyan
         Write-Host $middleBorder -ForegroundColor Cyan
         
-        $tools = @(
-            @{Name="返回主菜单"; Action={return}},
-            @{Name="检查并更新所有工具"; Action={Update-AllTools}},
-            @{Name="Oh My Posh"; Action={Update-OhMyPosh}},
-            @{Name="Terminal-Icons"; Action={Update-TerminalIcons}},
-            @{Name="PSReadLine"; Action={Update-PSReadLine}},
-            @{Name="Chocolatey"; Action={Update-Chocolatey}},
-            @{Name="Scoop 自动更新程序"; Action={
-                scoop update
-                Update-ScoopPackages
-            }},
-            @{Name="Winget 自动更新程序"; Action={Update-WingetPackages}}
-        )
-        
         for ($i = 0; $i -lt $tools.Count; $i++) {
             $optionText = "[$i] $($tools[$i].Name)".PadRight($width - 3)
             Write-Host "│ $optionText│" -ForegroundColor Yellow
@@ -587,18 +588,24 @@ function Manage-Tools {
         
         $choice = Read-Host "`n请选择要安装/更新的工具 (0-$($tools.Count - 1))"
 
-        if ([int]::TryParse($choice, [ref]$null) -and $choice -ge 0 -and $choice -lt $tools.Count) {
-            $selectedTool = $tools[$choice]
-            Write-Host "正在安装/更新 $($selectedTool.Name)..." -ForegroundColor Yellow
-            & $selectedTool.Action
-        } else {
-            Write-Log "无效的选择，请重试。" -Level Warning
-        }
-
-        if ($choice -ne "0") {
+        if ($choice -match '^\d+$' -and [int]$choice -ge 0 -and [int]$choice -lt $tools.Count) {
+            $selectedTool = $tools[[int]$choice]
+            if ($selectedTool.Name -eq "返回主菜单") {
+                return
+            }
+            Write-Host "正在安装/更新 $($selectedTool.Name)..." -ForegroundColor Cyan
+            try {
+                & $selectedTool.Action
+                Write-Host "$($selectedTool.Name) 安装/更新完成。" -ForegroundColor Green
+            } catch {
+                Write-Host "安装/更新 $($selectedTool.Name) 时出错：$($_.Exception.Message)" -ForegroundColor Red
+            }
             Read-Host "按 Enter 键继续"
+        } else {
+            Write-Host "无效的选择。" -ForegroundColor Red
+            Start-Sleep -Seconds 1
         }
-    } while ($choice -ne "0")
+    } while ($true)
 }
 
 # 配置文件
@@ -654,6 +661,24 @@ function prompt {
     }
     $promptString += "> "
     return $promptString
+}
+
+# 在配置文件的开头添加：
+$modulesPath = Join-Path $PSScriptRoot "Modules"
+if (Test-Path $modulesPath) {
+    Get-ChildItem $modulesPath -Filter "*.psm1" | ForEach-Object {
+        if (Test-Path $_.FullName) {
+            try {
+                Import-Module $_.FullName -Force -ErrorAction Stop
+            } catch {
+                Write-Log "无法加载模块 $($_.Name): $($_.Exception.Message)" -Level Error
+            }
+        } else {
+            Write-Log "模块文件不存在: $($_.FullName)" -Level Warning
+        }
+    }
+} else {
+    Write-Log "模块目录不存在: $modulesPath" -Level Warning
 }
 
 Manage-Tools

@@ -35,4 +35,20 @@ function Remove-EnvVariable {
     Write-Log "环境变量 $Name 已删除" -Level Info
 }
 
-Export-ModuleMember -Function Update-AllTools, Install-OhMyPosh, Get-EnvVariables, Set-EnvVariable, Remove-EnvVariable
+function Install-PowerShell7 {
+    winget install --id Microsoft.Powershell --source winget
+}
+
+function Install-Git {
+    winget install --id Git.Git --source winget
+}
+
+function Install-VSCode {
+    winget install --id Microsoft.VisualStudioCode --source winget
+}
+
+function Install-WindowsTerminal {
+    winget install --id Microsoft.WindowsTerminal --source winget
+}
+
+Export-ModuleMember -Function Update-AllTools, Install-OhMyPosh, Get-EnvVariables, Set-EnvVariable, Remove-EnvVariable, Install-PowerShell7, Install-Git, Install-VSCode, Install-WindowsTerminal
