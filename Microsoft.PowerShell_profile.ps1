@@ -690,7 +690,7 @@ function Show-ProfileMenu {
         @{Symbol="🌐"; Name="切换代理"; Action={Toggle-Proxy}},
         @{Symbol="🚀"; Name="执行PowerShell命令"; Action={Invoke-CustomCommand}},
         @{Symbol="📁"; Name="快速导航"; Action={Navigate-QuickAccess}},
-        @{Symbol="🔧"; Name="安装/更新工具"; Action={Manage-Tools}},
+        @{Symbol="🔧"; Name="安装/更新工具"; Action={Show-ToolManagement}},
         @{Symbol="🌐"; Name="网络诊断工具"; Action={Show-NetworkTools}},
         @{Symbol="📁"; Name="文件操作工具"; Action={Show-FileOperations}},
         @{Symbol="🔧"; Name="环境变量管理"; Action={Show-EnvVariableManagement}}
