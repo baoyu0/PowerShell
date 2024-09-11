@@ -40,21 +40,51 @@ function Load-Plugin {
     }
 }
 
+function Enable-Plugin {
+    param (
+        [string]$PluginName
+    )
+    $pluginConfig = Join-Path $PSScriptRoot "PluginConfig.json"
+    $config = Get-Content $pluginConfig | ConvertFrom-Json
+    $config.EnabledPlugins += $PluginName
+    $config | ConvertTo-Json | Set-Content $pluginConfig
+    Write-Log "插件 $PluginName 已启用" -Level Info
+}
+
+function Disable-Plugin {
+    param (
+        [string]$PluginName
+    )
+    $pluginConfig = Join-Path $PSScriptRoot "PluginConfig.json"
+    $config = Get-Content $pluginConfig | ConvertFrom-Json
+    $config.EnabledPlugins = $config.EnabledPlugins | Where-Object { $_ -ne $PluginName }
+    $config | ConvertTo-Json | Set-Content $pluginConfig
+    Write-Log "插件 $PluginName 已禁用" -Level Info
+}
+
 function Show-PluginManagement {
     do {
         $plugins = Get-AvailablePlugins
-        $choice = Show-Menu -Title "插件管理" -Options @(
-            "返回上级菜单"
-            $plugins | ForEach-Object { $_.Name }
-        )
+        $enabledPlugins = (Get-Content (Join-Path $PSScriptRoot "PluginConfig.json") | ConvertFrom-Json).EnabledPlugins
+        $options = @("返回上级菜单")
+        $options += $plugins | ForEach-Object { 
+            $status = if ($enabledPlugins -contains $_.Name) { "[已启用]" } else { "[已禁用]" }
+            "$($_.Name) $status"
+        }
+        $choice = Show-Menu -Title "插件管理" -Options $options
         
         if ($choice -eq 0) { return }
         if ($choice -le $plugins.Count) {
-            Load-Plugin $plugins[$choice - 1].Name
+            $selectedPlugin = $plugins[$choice - 1].Name
+            if ($enabledPlugins -contains $selectedPlugin) {
+                Disable-Plugin $selectedPlugin
+            } else {
+                Enable-Plugin $selectedPlugin
+            }
         }
         
         Read-Host "按 Enter 键继续"
     } while ($true)
 }
 
-Export-ModuleMember -Function Initialize-PluginSystem, Get-AvailablePlugins, Load-Plugin, Show-PluginManagement
+Export-ModuleMember -Function Initialize-PluginSystem, Get-AvailablePlugins, Load-Plugin, Show-PluginManagement, Enable-Plugin, Disable-Plugin

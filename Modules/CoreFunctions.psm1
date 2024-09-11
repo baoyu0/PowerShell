@@ -6,27 +6,38 @@ function Write-Log {
     )
     if ([System.Enum]::Parse([LogLevel], $script:Config.LogLevel) -le [System.Enum]::Parse([LogLevel], $Level)) {
         $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+        $logMessage = "[$timestamp] [$Level] $Message"
+        
+        # 控制台输出
         $colorMap = @{
             "Debug" = "Gray"
             "Info" = "White"
             "Warning" = "Yellow"
             "Error" = "Red"
         }
-        Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $colorMap[$Level]
+        Write-Host $logMessage -ForegroundColor $colorMap[$Level]
+        
+        # 文件日志
+        $logFile = Join-Path $PSScriptRoot "..\Logs\PowerShell_Profile.log"
+        $logMessage | Out-File -Append -FilePath $logFile
     }
 }
 
 function Edit-Profile {
-    if (Test-Path $PROFILE) {
-        Write-Log "正在打开配置文件进行编辑..." -Level Info
-        Start-Process $script:Config.DefaultEditor $PROFILE -Wait
-        Write-Log "配置文件编辑完成。请重新加载配置文件以应用更改。" -Level Info
-        Write-Log "可以使用 '. $PROFILE' 命令重新加载。" -Level Info
-    } else {
-        Write-Log "配置文件不存在。正在创建新的配置文件..." -Level Warning
-        New-Item -Path $PROFILE -ItemType File -Force
-        Start-Process $script:Config.DefaultEditor $PROFILE -Wait
-        Write-Log "新的配置文件已创建并打开进行编辑。" -Level Info
+    try {
+        if (Test-Path $PROFILE) {
+            Write-Log "正在打开配置文件进行编辑..." -Level Info
+            Start-Process $script:Config.DefaultEditor $PROFILE -Wait
+            Write-Log "配置文件编辑完成。请重新加载配置文件以应用更改。" -Level Info
+            Write-Log "可以使用 '. $PROFILE' 命令重新加载。" -Level Info
+        } else {
+            Write-Log "配置文件不存在。正在创建新的配置文件..." -Level Warning
+            New-Item -Path $PROFILE -ItemType File -Force
+            Start-Process $script:Config.DefaultEditor $PROFILE -Wait
+            Write-Log "新的配置文件已创建并打开进行编辑。" -Level Info
+        }
+    } catch {
+        Write-Log "编辑配置文件时发生错误：$($_.Exception.Message)" -Level Error
     }
 }
 
@@ -63,7 +74,9 @@ function Toggle-Proxy {
 function Invoke-CustomCommand {
     $command = Read-Host "请输入要执行的 PowerShell 命令"
     try {
-        Invoke-Expression $command
+        $result = Invoke-Expression $command
+        Write-Log "命令执行成功" -Level Info
+        $result
     } catch {
         Write-Log "执行命令时发生错误：$($_.Exception.Message)" -Level Error
     }
@@ -105,4 +118,30 @@ function Restore-Configuration {
     }
 }
 
-Export-ModuleMember -Function Write-Log, Edit-Profile, Show-Profile, Update-Profile, Toggle-Proxy, Invoke-CustomCommand, Navigate-QuickAccess, Backup-Configuration, Restore-Configuration
+function Check-ForUpdates {
+    $currentVersion = $script:Version
+    $repoUrl = "https://api.github.com/repos/yourusername/yourrepo/releases/latest"
+    
+    try {
+        $latestRelease = Invoke-RestMethod -Uri $repoUrl -Method Get
+        $latestVersion = $latestRelease.tag_name
+
+        if ([System.Version]$latestVersion -gt [System.Version]$currentVersion) {
+            Write-Log "发现新版本：$latestVersion" -Level Info
+            $download = Read-Host "是否下载更新？(Y/N)"
+            if ($download -eq 'Y' -or $download -eq 'y') {
+                $downloadUrl = $latestRelease.assets[0].browser_download_url
+                $outputPath = Join-Path $env:TEMP "PowerShellProfile_$latestVersion.zip"
+                Invoke-WebRequest -Uri $downloadUrl -OutFile $outputPath
+                Write-Log "更新已下载到：$outputPath" -Level Info
+                Write-Log "请手动解压并替换当前配置文件。" -Level Info
+            }
+        } else {
+            Write-Log "当前版本已是最新。" -Level Info
+        }
+    } catch {
+        Write-Log "检查更新时发生错误：$($_.Exception.Message)" -Level Error
+    }
+}
+
+Export-ModuleMember -Function Write-Log, Edit-Profile, Show-Profile, Update-Profile, Toggle-Proxy, Invoke-CustomCommand, Navigate-QuickAccess, Backup-Configuration, Restore-Configuration, Check-ForUpdates

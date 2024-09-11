@@ -17,5 +17,7 @@
     }
     UpdateCheckInterval = 7 # 天
     DefaultProxyPort = 20000
+    EnableProxy = $false
     LogLevel = "Info" # 可选值：Debug, Info, Warning, Error
+    PluginsDirectory = "Plugins"
 }
