@@ -345,6 +345,7 @@ function Update-PowerShellProfile {
         }
     } catch {
         Write-Log "更新配置文件时出错：$($_.Exception.Message)" -Level Error
+        return $false
     }
 
     # 更新最后检查时间
@@ -598,6 +599,61 @@ function Manage-Tools {
             Read-Host "按 Enter 键继续"
         }
     } while ($choice -ne "0")
+}
+
+# 配置文件
+$configPath = Join-Path $PSScriptRoot "config.json"
+if (Test-Path $configPath) {
+    $config = Get-Content $configPath | ConvertFrom-Json
+} else {
+    $config = @{
+        ProxyPort = 20000
+        UpdateCheckInterval = 24
+        DefaultTheme = "1_shell"
+    }
+}
+
+# 使用配置
+$proxyPort = $config.ProxyPort
+$updateCheckInterval = $config.UpdateCheckInterval
+
+# 自动补全
+Register-ArgumentCompleter -CommandName Set-PoshTheme -ParameterName ThemeName -ScriptBlock {
+    param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameters)
+    
+    $themes = Get-ChildItem "$env:POSH_THEMES_PATH\*.omp.json" | ForEach-Object { $_.BaseName }
+    $themes -like "$wordToComplete*"
+}
+
+# 性能优化
+$script:gitBranchCache = @{}
+
+function Get-GitBranch {
+    $path = (Get-Location).Path
+    if ($script:gitBranchCache.ContainsKey($path) -and 
+        (Get-Date) - $script:gitBranchCache[$path].Timestamp -lt (New-TimeSpan -Seconds 30)) {
+        return $script:gitBranchCache[$path].Branch
+    }
+    
+    $branch = git rev-parse --abbrev-ref HEAD 2>$null
+    if ($branch) {
+        $script:gitBranchCache[$path] = @{
+            Branch = $branch
+            Timestamp = Get-Date
+        }
+    }
+    return $branch
+}
+
+function prompt {
+    $location = Get-Location
+    $gitBranch = Get-GitBranch
+    $promptString = "PS $location"
+    if ($gitBranch) {
+        $promptString += " [$gitBranch]"
+    }
+    $promptString += "> "
+    return $promptString
 }
 
 Manage-Tools
