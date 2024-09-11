@@ -10,6 +10,7 @@
 #>
 
 using module .\UIHelpers.psm1
+using module .\CoreFunctions.psm1
 
 function Show-ToolManagement {
     do {
@@ -20,7 +21,10 @@ function Show-ToolManagement {
             "安装/更新 PowerShell 7",
             "安装/更新 Git",
             "安装/更新 Visual Studio Code",
-            "安装/更新 Windows Terminal"
+            "安装/更新 Windows Terminal",
+            "安装/更新 Chocolatey",
+            "安装/更新 Scoop",
+            "安装/更新 Winget"
         )
         
         switch ($choice) {
@@ -31,6 +35,9 @@ function Show-ToolManagement {
             4 { Install-Git }
             5 { Install-VSCode }
             6 { Install-WindowsTerminal }
+            7 { Install-Chocolatey }
+            8 { Install-Scoop }
+            9 { Install-Winget }
         }
         
         if ($choice -ne 0) { Read-Host "按 Enter 键继续" }
@@ -44,7 +51,10 @@ function Update-AllTools {
         @{Name="PowerShell 7"; Action={Install-PowerShell7}},
         @{Name="Git"; Action={Install-Git}},
         @{Name="Visual Studio Code"; Action={Install-VSCode}},
-        @{Name="Windows Terminal"; Action={Install-WindowsTerminal}}
+        @{Name="Windows Terminal"; Action={Install-WindowsTerminal}},
+        @{Name="Chocolatey"; Action={Update-Chocolatey}},
+        @{Name="Scoop"; Action={Update-Scoop}},
+        @{Name="Winget"; Action={Update-Winget}}
     )
     
     for ($i = 0; $i -lt $tools.Count; $i++) {
@@ -153,4 +163,42 @@ function Install-WindowsTerminal {
     }
 }
 
-Export-ModuleMember -Function Show-ToolManagement, Update-AllTools, Install-OhMyPosh, Install-PowerShell7, Install-Git, Install-VSCode, Install-WindowsTerminal
+function Update-Scoop {
+    Write-StatusMessage "正在更新 Scoop..." -Type Info
+    scoop update
+    $updates = scoop status
+    if ($updates) {
+        Write-StatusMessage "发现以下可用更新：" -Type Info
+        $updates | ForEach-Object { Write-Host $_ }
+        scoop update *
+    } else {
+        Write-StatusMessage "所有 Scoop 软件包都是最新的。" -Type Success
+    }
+}
+
+function Update-Chocolatey {
+    Write-StatusMessage "正在更新 Chocolatey..." -Type Info
+    choco upgrade chocolatey -y
+    $updates = choco outdated
+    if ($updates -notmatch "Chocolatey has determined no packages are outdated") {
+        Write-StatusMessage "发现以下可用更新：" -Type Info
+        $updates | ForEach-Object { Write-Host $_ }
+        choco upgrade all -y
+    } else {
+        Write-StatusMessage "所有 Chocolatey 软件包都是最新的。" -Type Success
+    }
+}
+
+function Update-Winget {
+    Write-StatusMessage "正在检查 Winget 更新..." -Type Info
+    $updates = winget upgrade
+    if ($updates -match "升级可用") {
+        Write-StatusMessage "发现以下可用更新：" -Type Info
+        $updates | ForEach-Object { Write-Host $_ }
+        winget upgrade --all
+    } else {
+        Write-StatusMessage "所有 Winget 软件包都是最新的。" -Type Success
+    }
+}
+
+Export-ModuleMember -Function Show-ToolManagement, Update-AllTools, Install-OhMyPosh, Install-PowerShell7, Install-Git, Install-VSCode, Install-WindowsTerminal, Update-Scoop, Update-Chocolatey, Update-Winget
