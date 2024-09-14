@@ -14,14 +14,18 @@ using module .\CoreFunctions.psm1
 
 function Show-ToolManagement {
     $tools = @(
-        @{Name="返回上级菜单"; Action={return}}
-        @{Name="更新所有工具"; Action={Update-AllTools}}
-        @{Name="Oh My Posh"; Action={Install-OhMyPosh}}
-        @{Name="Terminal-Icons"; Action={Install-Module -Name Terminal-Icons -Force}}
-        @{Name="PSReadLine"; Action={Install-Module -Name PSReadLine -Force}}
-        @{Name="Chocolatey"; Action={Install-Chocolatey}}
-        @{Name="Scoop"; Action={Install-Scoop}}
-        @{Name="Winget"; Action={Update-Winget}}
+        @{Name="返回主菜单"; Action={return}},
+        @{Name="检查并更新所有工具"; Action={Update-AllTools}},
+        @{Name="Oh My Posh"; Action={Install-OhMyPosh}},
+        @{Name="Terminal-Icons"; Action={Install-TerminalIcons}},
+        @{Name="PSReadLine"; Action={Install-PSReadLine}},
+        @{Name="Chocolatey"; Action={Install-Chocolatey}},
+        @{Name="Scoop"; Action={Install-Scoop}},
+        @{Name="Winget"; Action={Install-Winget}},
+        @{Name="PowerShell 7"; Action={Install-PowerShell7}},
+        @{Name="Git"; Action={Install-Git}},
+        @{Name="Visual Studio Code"; Action={Install-VSCode}},
+        @{Name="Windows Terminal"; Action={Install-WindowsTerminal}}
     )
 
     do {
@@ -181,30 +185,30 @@ function Install-Winget {
     .SYNOPSIS
         安装或更新 Winget
     .DESCRIPTION
-        该函数检查 Winget 是否已安装，如果未安装则尝试安装它。
+        该函数检查 Winget 是否已安装，如果未安装则尝试通过 Microsoft Store 安装 Winget。
     .EXAMPLE
         Install-Winget
     #>
     try {
         if (Get-Command winget -ErrorAction SilentlyContinue) {
-            Write-Host "Winget 已安装，正在检查更新..." -ForegroundColor Yellow
+            Write-Log "Winget 已安装，正在检查更新..." -Level Info
             Update-Winget
         } else {
-            Write-Host "Winget 未安装，正在尝试安装..." -ForegroundColor Yellow
+            Write-Log "Winget 未安装，正在尝试安装..." -Level Warning
             # 尝试从 Microsoft Store 安装 Winget
-            Start-Process "ms-windows-store://pdp/?ProductId=9nblggh4nns1" -Wait
+            Start-Process "ms-windows-store://pdp/?ProductId=9NBLGGH4NNS1" -Wait
             Write-Host "请在 Microsoft Store 中完成 Winget 的安装，然后按任意键继续..." -ForegroundColor Cyan
             [Console]::ReadKey($true) | Out-Null
-            
+
             if (Get-Command winget -ErrorAction SilentlyContinue) {
-                Write-Host "Winget 安装成功。" -ForegroundColor Green
+                Write-Log "Winget 安装成功。" -Level Info
             } else {
-                Write-Host "Winget 安装失败。请手动安装 Winget。" -ForegroundColor Red
+                Write-Log "Winget 安装失败。请手动安装 Winget。" -Level Error
             }
         }
     }
     catch {
-        Write-Host "安装/更新 Winget 时发生错误：$($_.Exception.Message)" -ForegroundColor Red
+        Write-Log "安装/更新 Winget 时发生错误：$($_.Exception.Message)" -Level Error
     }
 }
 
@@ -227,11 +231,8 @@ function Update-Scoop {
 }
 
 function Update-Winget {
-    if (Get-Command winget -ErrorAction SilentlyContinue) {
-        $wingetVersion = (winget --version).Trim()
-        Write-Host "当前 Winget 版本: $wingetVersion" -ForegroundColor Cyan
-
-        Write-Host "正在更新软件源..." -ForegroundColor Yellow
+    try {
+        Write-Host "正在更新 Winget 软件源..." -ForegroundColor Yellow
         winget source update
 
         Write-Host "正在检查可用更新..." -ForegroundColor Yellow
@@ -244,7 +245,7 @@ function Update-Winget {
             $_ -notmatch '升级可用。$' -and
             $_ -notmatch '程序包的版本号无法确定。'
         }
-        
+
         if ($updates) {
             $updateCount = ($updates | Measure-Object).Count
             Write-Host "发现 $updateCount 个可更新的软件包：" -ForegroundColor Green
@@ -253,15 +254,11 @@ function Update-Winget {
             $confirm = Read-Host "是否要更新所有软件包？(Y/N)"
             if ($confirm -eq 'Y' -or $confirm -eq 'y') {
                 Write-Host "正在更新所有软件包，这可能需要一些时间..." -ForegroundColor Yellow
-                $currentUpdate = 0
                 foreach ($update in $updates) {
-                    $currentUpdate++
                     $packageId = ($update -split '\s+')[0]
-                    $percentComplete = [math]::Floor(($currentUpdate / $updateCount) * 100)
-                    Write-Progress -Activity "正在更新软件包" -Status "$packageId ($currentUpdate / $updateCount)" -PercentComplete $percentComplete
-                    winget upgrade $packageId --accept-source-agreements
+                    Write-Host "正在更新 $packageId..." -ForegroundColor Cyan
+                    winget upgrade $packageId --accept-source-agreements | Out-Null
                 }
-                Write-Progress -Activity "正在更新软件包" -Completed
                 Write-Host "所有 Winget 软件包更新完成！" -ForegroundColor Green
             } else {
                 Write-Host "更新已取消。" -ForegroundColor Yellow
@@ -269,8 +266,9 @@ function Update-Winget {
         } else {
             Write-Host "所有 Winget 软件包都是最新的。" -ForegroundColor Green
         }
-    } else {
-        Write-Host "Winget 未找到。请确保 Windows 已更新到最新版本。" -ForegroundColor Yellow
+    }
+    catch {
+        Write-Log "更新 Winget 时发生错误：$($_.Exception.Message)" -Level Error
     }
 }
 

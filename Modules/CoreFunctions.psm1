@@ -1,26 +1,16 @@
 function Write-Log {
     param (
         [string]$Message,
-        [ValidateSet("Debug", "Info", "Warning", "Error")]
+        [ValidateSet("Info", "Warning", "Error")]
         [string]$Level = "Info"
     )
-    if ([System.Enum]::Parse([LogLevel], $script:Config.LogLevel) -le [System.Enum]::Parse([LogLevel], $Level)) {
-        $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-        $logMessage = "[$timestamp] [$Level] $Message"
-        
-        # 控制台输出
-        $colorMap = @{
-            "Debug" = "Gray"
-            "Info" = "White"
-            "Warning" = "Yellow"
-            "Error" = "Red"
-        }
-        Write-Host $logMessage -ForegroundColor $colorMap[$Level]
-        
-        # 文件日志
-        $logFile = Join-Path $PSScriptRoot "..\Logs\PowerShell_Profile.log"
-        $logMessage | Out-File -Append -FilePath $logFile
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $colorMap = @{
+        "Info" = "White"
+        "Warning" = "Yellow"
+        "Error" = "Red"
     }
+    Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $colorMap[$Level]
 }
 
 function Edit-Profile {
@@ -69,10 +59,40 @@ function Update-Profile {
 }
 
 function Toggle-Proxy {
-    # 实现代理切换逻辑
-    Write-Log "正在切换代理设置..." -Level Info
-    # TODO: 实现代理切换逻辑
-    Write-Log "代理设置已切换。" -Level Info
+    $config = Get-ProfileConfig
+    $proxyPort = $config.ProxyPort
+
+    function Show-ProxyStatus {
+        if ($env:http_proxy) {
+            Write-HostSafe "当前网络代理状态: 已开启" -ForegroundColor Green
+            Write-HostSafe "HTTP 代理: $env:http_proxy" -ForegroundColor Cyan
+            Write-HostSafe "SOCKS 代理: $env:SOCKS_SERVER" -ForegroundColor Cyan
+        } else {
+            Write-HostSafe "当前网络代理状态: 已关闭" -ForegroundColor Yellow
+        }
+    }
+
+    function Enable-Proxy {
+        $env:http_proxy = "http://127.0.0.1:$proxyPort"
+        $env:https_proxy = "http://127.0.0.1:$proxyPort"
+        $env:SOCKS_SERVER = "socks5://127.0.0.1:$proxyPort"
+        Write-Log "代理已开启" -Level Info
+        Show-ProxyStatus
+    }
+
+    function Disable-Proxy {
+        Remove-Item Env:http_proxy -ErrorAction SilentlyContinue
+        Remove-Item Env:https_proxy -ErrorAction SilentlyContinue
+        Remove-Item Env:SOCKS_SERVER -ErrorAction SilentlyContinue
+        Write-Log "代理已关闭" -Level Info
+        Show-ProxyStatus
+    }
+
+    if ($env:http_proxy) {
+        Disable-Proxy
+    } else {
+        Enable-Proxy
+    }
 }
 
 function Invoke-CustomCommand {
@@ -148,4 +168,24 @@ function Check-ForUpdates {
     }
 }
 
-Export-ModuleMember -Function Write-Log, Edit-Profile, Show-Profile, Update-Profile, Toggle-Proxy, Invoke-CustomCommand, Navigate-QuickAccess, Backup-Configuration, Restore-Configuration, Check-ForUpdates
+function Check-UpdateCache {
+    $cacheFile = Join-Path $env:TEMP "PowerShellProfileUpdateCache.json"
+    $cacheExpiration = $config.UpdateCheckInterval # 小时
+
+    if (Test-Path $cacheFile) {
+        $cache = Get-Content $cacheFile | ConvertFrom-Json
+        if (![string]::IsNullOrEmpty($cache.LastCheck) -and ((Get-Date) - [DateTime]$cache.LastCheck).TotalHours -lt $cacheExpiration) {
+            return $cache.NeedsUpdate
+        }
+    }
+
+    $needsUpdate = Update-PowerShellProfile
+    @{
+        LastCheck = (Get-Date).ToString("o")
+        NeedsUpdate = $needsUpdate
+    } | ConvertTo-Json | Set-Content $cacheFile
+
+    return $needsUpdate
+}
+
+Export-ModuleMember -Function Write-Log, Edit-Profile, Show-Profile, Update-Profile, Toggle-Proxy, Invoke-CustomCommand, Navigate-QuickAccess, Backup-Configuration, Restore-Configuration, Check-ForUpdates, Check-UpdateCache

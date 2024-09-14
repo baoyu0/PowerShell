@@ -72,7 +72,8 @@ Set-PSReadLineKeyHandler -Chord 'Ctrl+,' -ScriptBlock {
 
 # 代理设置
 function Toggle-Proxy {
-    $proxyPort = 20000
+    $config = Get-ProfileConfig
+    $proxyPort = $config.ProxyPort
 
     function Show-ProxyStatus {
         if ($env:http_proxy) {
@@ -93,62 +94,18 @@ function Toggle-Proxy {
     }
 
     function Disable-Proxy {
-        $env:http_proxy = $null
-        $env:https_proxy = $null
-        $env:SOCKS_SERVER = $null
+        Remove-Item Env:http_proxy -ErrorAction SilentlyContinue
+        Remove-Item Env:https_proxy -ErrorAction SilentlyContinue
+        Remove-Item Env:SOCKS_SERVER -ErrorAction SilentlyContinue
         Write-Log "代理已关闭" -Level Info
         Show-ProxyStatus
     }
 
-    # 初始化时自动开启代理
-    if (-not $env:http_proxy) {
+    if ($env:http_proxy) {
+        Disable-Proxy
+    } else {
         Enable-Proxy
     }
-
-    do {
-        Clear-Host
-        $width = 60
-        $title = "网络代理设置"
-        
-        $horizontalLine = "─" * ($width - 2)
-        $topBorder    = "┌$horizontalLine┐"
-        $bottomBorder = "└$horizontalLine┘"
-        $middleBorder = "├$horizontalLine┤"
-
-        Write-HostSafe $topBorder -ForegroundColor Cyan
-        $titlePadded = $title.PadLeft([Math]::Floor(($width + $title.Length) / 2)).PadRight($width - 2)
-        Write-HostSafe "│$titlePadded│" -ForegroundColor Cyan
-        Write-HostSafe $middleBorder -ForegroundColor Cyan
-        
-        Show-ProxyStatus
-        Write-HostSafe $middleBorder -ForegroundColor Cyan
-        
-        $options = @(
-            "返回主菜单",
-            "开启网络代理",
-            "关闭网络代理"
-        )
-        
-        for ($i = 0; $i -lt $options.Count; $i++) {
-            $optionText = "[$i] $($options[$i])".PadRight($width - 3)
-            Write-HostSafe "│ $optionText│" -ForegroundColor Yellow
-        }
-        
-        Write-HostSafe $bottomBorder -ForegroundColor Cyan
-        
-        $choice = Read-Host "`n请选择操作 (0-$($options.Count - 1))"
-
-        switch ($choice) {
-            "0" { return }
-            "1" { Enable-Proxy }
-            "2" { Disable-Proxy }
-            default { Write-Log "无效的选择，请重试。" -Level Warning }
-        }
-
-        if ($choice -ne "0") {
-            Read-Host "按 Enter 键继续"
-        }
-    } while ($choice -ne "0")
 }
 
 # Winget tab自动补全
