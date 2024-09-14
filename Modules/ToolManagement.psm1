@@ -13,30 +13,53 @@ using module .\UIHelpers.psm1
 using module .\CoreFunctions.psm1
 
 function Show-ToolManagement {
+    $tools = @(
+        @{Name="返回上级菜单"; Action={return}}
+        @{Name="更新所有工具"; Action={Update-AllTools}}
+        @{Name="Oh My Posh"; Action={Install-OhMyPosh}}
+        @{Name="Terminal-Icons"; Action={Install-Module -Name Terminal-Icons -Force}}
+        @{Name="PSReadLine"; Action={Install-Module -Name PSReadLine -Force}}
+        @{Name="Chocolatey"; Action={Install-Chocolatey}}
+        @{Name="Scoop"; Action={Install-Scoop}}
+        @{Name="Winget"; Action={Update-Winget}}
+    )
+
     do {
-        $choice = Show-Menu -Title "工具管理" -Options @(
-            "返回上级菜单",
-            "更新所有工具",
-            "安装/更新 Oh My Posh",
-            "安装/更新 Terminal-Icons",
-            "安装/更新 PSReadLine",
-            "安装/更新 Chocolatey",
-            "安装/更新 Scoop",
-            "检查 Winget 更新"
-        )
+        Clear-Host
+        $width = 60
+        $title = "工具管理"
         
-        switch ($choice) {
-            0 { return }
-            1 { Update-AllTools }
-            2 { Install-OhMyPosh }
-            3 { Install-Module -Name Terminal-Icons -Force }
-            4 { Install-Module -Name PSReadLine -Force }
-            5 { Install-Chocolatey }
-            6 { Install-Scoop }
-            7 { Update-Winget }
+        $horizontalLine = "─" * ($width - 2)
+        $topBorder    = "┌$horizontalLine┐"
+        $bottomBorder = "└$horizontalLine┘"
+
+        Write-Host $topBorder -ForegroundColor Cyan
+        Write-Host "│" -NoNewline -ForegroundColor Cyan
+        Write-Host $title.PadLeft([math]::Floor(($width + $title.Length) / 2)).PadRight($width - 2) -NoNewline
+        Write-Host "│" -ForegroundColor Cyan
+        Write-Host "├$horizontalLine┤" -ForegroundColor Cyan
+
+        for ($i = 0; $i -lt $tools.Count; $i++) {
+            $option = "│ [$i] $($tools[$i].Name)".PadRight($width - 1) + "│"
+            Write-Host $option -ForegroundColor Yellow
         }
-        
-        if ($choice -ne 0) { Read-Host "按 Enter 键继续" }
+
+        Write-Host $bottomBorder -ForegroundColor Cyan
+
+        $choice = Read-Host "`n请选择要安装/更新的工具 (0-$($tools.Count - 1))"
+        if ($choice -match '^\d+$' -and [int]$choice -ge 0 -and [int]$choice -lt $tools.Count) {
+            if ($choice -eq 0) { return }
+            Clear-Host
+            Write-Host "正在执行：$($tools[$choice].Name)" -ForegroundColor Cyan
+            & $tools[$choice].Action
+            if ($choice -ne 0) { 
+                Write-Host "`n操作完成。" -ForegroundColor Green
+                Read-Host "按 Enter 键继续"
+            }
+        } else {
+            Write-Host "无效的选择，请重试。" -ForegroundColor Red
+            Start-Sleep -Seconds 1
+        }
     } while ($true)
 }
 

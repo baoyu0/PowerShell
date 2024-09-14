@@ -21,9 +21,23 @@ function Write-Log {
 function Get-ProfileConfig {
     $configPath = Join-Path $PSScriptRoot "..\config.json"
     if (Test-Path $configPath) {
-        Get-Content $configPath | ConvertFrom-Json
+        try {
+            $config = Get-Content $configPath | ConvertFrom-Json
+            # 添加配置校验逻辑
+            if (-not $config.ProxyPort) {
+                $config.ProxyPort = 20000
+            }
+            return $config
+        } catch {
+            Write-Log "读取配置文件时出错：$($_.Exception.Message)" -Level Error
+            return @{
+                ProxyPort = 20000
+                UpdateCheckInterval = 24
+                DefaultTheme = "1_shell"
+            }
+        }
     } else {
-        @{
+        return @{
             ProxyPort = 20000
             UpdateCheckInterval = 24
             DefaultTheme = "1_shell"

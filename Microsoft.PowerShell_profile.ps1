@@ -686,35 +686,6 @@ function Get-GitBranch {
     return $branch
 }
 
-function prompt {
-    $location = Get-Location
-    $gitBranch = Get-GitBranch
-    $promptString = "PS $location"
-    if ($gitBranch) {
-        $promptString += " [$gitBranch]"
-    }
-    $promptString += "> "
-    return $promptString
-}
-
-# 在配置文件的开头添加：
-$modulesPath = Join-Path $PSScriptRoot "Modules"
-if (Test-Path $modulesPath) {
-    Get-ChildItem $modulesPath -Filter "*.psm1" | ForEach-Object {
-        if (Test-Path $_.FullName) {
-            try {
-                Import-Module $_.FullName -Force -ErrorAction Stop
-            } catch {
-                Write-Log "无法加载模块 $($_.Name): $($_.Exception.Message)" -Level Error
-            }
-        } else {
-            Write-Log "模块文件不存在: $($_.FullName)" -Level Warning
-        }
-    }
-} else {
-    Write-Log "模块目录不存在: $modulesPath" -Level Warning
-}
-
 function Show-ProfileMenu {
     $options = @(
         @{Symbol="❌"; Name="退出菜单"; Action={return $true}},

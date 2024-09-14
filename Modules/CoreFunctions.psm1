@@ -58,10 +58,14 @@ function Show-Profile {
 }
 
 function Update-Profile {
-    # 实现配置文件更新逻辑
-    Write-Log "正在检查配置文件更新..." -Level Info
-    # TODO: 实现更新逻辑
-    Write-Log "配置文件已是最新版本。" -Level Info
+    try {
+        # 实现配置文件更新逻辑
+        Write-Log "正在检查配置文件更新..." -Level Info
+        # TODO: 实现更新逻辑
+        Write-Log "配置文件已是最新版本。" -Level Info
+    } catch {
+        Write-Log "更新配置文件时发生错误：$($_.Exception.Message)" -Level Error
+    }
 }
 
 function Toggle-Proxy {
