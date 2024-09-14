@@ -1,3 +1,33 @@
+# 定义 Write-HostSafe 函数
+function Write-HostSafe {
+    param(
+        [Parameter(Position=0, ValueFromPipeline=$true)]
+        [Object] $Object,
+        [Parameter()]
+        [ConsoleColor] $ForegroundColor = [ConsoleColor]::White,
+        [Parameter()]
+        [ConsoleColor] $BackgroundColor = [ConsoleColor]::Black,
+        [Parameter()]
+        [Switch] $NoNewline
+    )
+
+    $validColors = [Enum]::GetValues([ConsoleColor])
+    
+    if ($validColors -notcontains $ForegroundColor) {
+        $ForegroundColor = [ConsoleColor]::White
+    }
+    
+    if ($validColors -notcontains $BackgroundColor) {
+        $BackgroundColor = [ConsoleColor]::Black
+    }
+
+    if ($NoNewline) {
+        Write-Host -Object $Object -ForegroundColor $ForegroundColor -BackgroundColor $BackgroundColor -NoNewline
+    } else {
+        Write-Host -Object $Object -ForegroundColor $ForegroundColor -BackgroundColor $BackgroundColor
+    }
+}
+
 # 主题部分
 oh-my-posh init pwsh --config "$env:POSH_THEMES_PATH\1_shell.omp.json" | Invoke-Expression
 
@@ -46,11 +76,11 @@ function Toggle-Proxy {
 
     function Show-ProxyStatus {
         if ($env:http_proxy) {
-            Write-Host "当前网络代理状态: 已开启" -ForegroundColor Green
-            Write-Host "HTTP 代理: $env:http_proxy" -ForegroundColor Cyan
-            Write-Host "SOCKS 代理: $env:SOCKS_SERVER" -ForegroundColor Cyan
+            Write-HostSafe "当前网络代理状态: 已开启" -ForegroundColor Green
+            Write-HostSafe "HTTP 代理: $env:http_proxy" -ForegroundColor Cyan
+            Write-HostSafe "SOCKS 代理: $env:SOCKS_SERVER" -ForegroundColor Cyan
         } else {
-            Write-Host "当前网络代理状态: 已关闭" -ForegroundColor Yellow
+            Write-HostSafe "当前网络代理状态: 已关闭" -ForegroundColor Yellow
         }
     }
 
@@ -85,13 +115,13 @@ function Toggle-Proxy {
         $bottomBorder = "└$horizontalLine┘"
         $middleBorder = "├$horizontalLine┤"
 
-        Write-Host $topBorder -ForegroundColor Cyan
+        Write-HostSafe $topBorder -ForegroundColor Cyan
         $titlePadded = $title.PadLeft([Math]::Floor(($width + $title.Length) / 2)).PadRight($width - 2)
-        Write-Host "│$titlePadded│" -ForegroundColor Cyan
-        Write-Host $middleBorder -ForegroundColor Cyan
+        Write-HostSafe "│$titlePadded│" -ForegroundColor Cyan
+        Write-HostSafe $middleBorder -ForegroundColor Cyan
         
         Show-ProxyStatus
-        Write-Host $middleBorder -ForegroundColor Cyan
+        Write-HostSafe $middleBorder -ForegroundColor Cyan
         
         $options = @(
             "返回主菜单",
@@ -101,10 +131,10 @@ function Toggle-Proxy {
         
         for ($i = 0; $i -lt $options.Count; $i++) {
             $optionText = "[$i] $($options[$i])".PadRight($width - 3)
-            Write-Host "│ $optionText│" -ForegroundColor Yellow
+            Write-HostSafe "│ $optionText│" -ForegroundColor Yellow
         }
         
-        Write-Host $bottomBorder -ForegroundColor Cyan
+        Write-HostSafe $bottomBorder -ForegroundColor Cyan
         
         $choice = Read-Host "`n请选择操作 (0-$($options.Count - 1))"
 
@@ -158,19 +188,19 @@ function Edit-Profile {
     }
 }
 function Show-Profile {
-    Write-Host "当前配置文件内容：" -ForegroundColor Cyan
-    Write-Host "================================" -ForegroundColor Cyan
+    Write-HostSafe "当前配置文件内容：" -ForegroundColor Cyan
+    Write-HostSafe "================================" -ForegroundColor Cyan
     Get-Content $PROFILE | ForEach-Object {
         if ($_ -match '^function') {
-            Write-Host $_ -ForegroundColor Yellow
+            Write-HostSafe $_ -ForegroundColor Yellow
         } elseif ($_ -match '^#') {
-            Write-Host $_ -ForegroundColor Green
+            Write-HostSafe $_ -ForegroundColor Green
         } else {
-            Write-Host $_
+            Write-HostSafe $_
         }
     }
-    Write-Host "================================" -ForegroundColor Cyan
-    Write-Host "配置文件路径：$PROFILE" -ForegroundColor Cyan
+    Write-HostSafe "================================" -ForegroundColor Cyan
+    Write-HostSafe "配置文件路径：$PROFILE" -ForegroundColor Cyan
 }
 
 function Find-File {
@@ -207,9 +237,9 @@ function Get-SystemInfo {
         $cpu = Get-CimInstance -ClassName Win32_Processor -ErrorAction Stop
         $ram = Get-CimInstance -ClassName Win32_PhysicalMemory -ErrorAction Stop | Measure-Object -Property Capacity -Sum
 
-        Write-Host "操作系统：" $os.Caption
-        Write-Host "CPU：" $cpu.Name
-        Write-Host "内存：" ("{0:N2} GB" -f ($ram.Sum / 1GB))
+        Write-HostSafe "操作系统：" $os.Caption
+        Write-HostSafe "CPU：" $cpu.Name
+        Write-HostSafe "内存：" ("{0:N2} GB" -f ($ram.Sum / 1GB))
     } catch {
         Write-Log "获取系统信息时出错：$($_.Exception.Message)" -Level Error
     }
@@ -249,8 +279,8 @@ function Install-Package {
 }
 
 function Show-Welcome {
-    Write-Host "欢迎使用PowerShell！当前时间：" (Get-Date) -ForegroundColor Cyan
-    Write-Host "输入 'Get-Command' 查看所有可用命令。" -ForegroundColor Yellow
+    Write-HostSafe "欢迎使用PowerShell！当前时间：" (Get-Date) -ForegroundColor Cyan
+    Write-HostSafe "输入 'Get-Command' 查看所有可用命令。" -ForegroundColor Yellow
 }
 
 Show-Welcome
@@ -373,37 +403,37 @@ function Show-HorizontalProgressBar {
     $completedLength = [math]::Floor($BarLength * ($PercentComplete / 100))
     $remainingLength = $BarLength - $completedLength
     $progressBar = "[" + "=" * $completedLength + " " * $remainingLength + "]"
-    Write-Host -NoNewline "`r$progressBar $PercentComplete% "
+    Write-HostSafe -NoNewline "`r$progressBar $PercentComplete% "
 }
 
 function Update-WingetPackages {
-    Write-Host "正在检查 Winget 更新..." -ForegroundColor Yellow
+    Write-HostSafe "正在检查 Winget 更新..." -ForegroundColor Yellow
     $updateOutput = winget upgrade
     $updates = $updateOutput | Select-String -Pattern '^(\S+\s+){3}\S+\s+\S+' | Where-Object { $_ -notmatch '名称\s+ID\s+版本\s+可用\s+源' }
     
     if ($updates) {
         $updateCount = ($updates | Measure-Object).Count
-        Write-Host "发现 $updateCount 个可更新的软件包。" -ForegroundColor Cyan
-        $updates | ForEach-Object { Write-Host $_ -ForegroundColor Green }
+        Write-HostSafe "发现 $updateCount 个可更新的软件包。" -ForegroundColor Cyan
+        $updates | ForEach-Object { Write-HostSafe $_ -ForegroundColor Green }
         
         $confirm = Read-Host "是否要更新所有软件包？(Y/N)"
         if ($confirm -eq 'Y' -or $confirm -eq 'y') {
-            Write-Host "正在更新所有软件包，这可能需要一些时间..." -ForegroundColor Yellow
+            Write-HostSafe "正在更新所有软件包，这可能需要一些时间..." -ForegroundColor Yellow
             $currentUpdate = 0
             foreach ($update in $updates) {
                 $currentUpdate++
                 $packageId = ($update -split '\s+')[0]
                 $percentComplete = [math]::Floor(($currentUpdate / $updateCount) * 100)
-                Write-Host "`r正在更新 $packageId ($currentUpdate / $updateCount)" -NoNewline
+                Write-HostSafe "`r正在更新 $packageId ($currentUpdate / $updateCount)" -NoNewline
                 Show-HorizontalProgressBar -PercentComplete $percentComplete
                 winget upgrade $packageId --accept-source-agreements | Out-Null
             }
-            Write-Host "`n所有 Winget 软件包更新完成！" -ForegroundColor Green
+            Write-HostSafe "`n所有 Winget 软件包更新完成！" -ForegroundColor Green
         } else {
-            Write-Host "更新已取消。" -ForegroundColor Yellow
+            Write-HostSafe "更新已取消。" -ForegroundColor Yellow
         }
     } else {
-        Write-Host "所有 Winget 软件包都是最新的。" -ForegroundColor Green
+        Write-HostSafe "所有 Winget 软件包都是最新的。" -ForegroundColor Green
     }
 }
 
@@ -411,7 +441,7 @@ function Update-ScoopPackages {
     $updates = scoop status | Where-Object { $_ -match '^\S+\s+:\s+\S+\s+->\s+\S+$' }
     if ($updates) {
         $updateCount = ($updates | Measure-Object).Count
-        Write-Host "发现 $updateCount 个可更新的软件包。" -ForegroundColor Cyan
+        Write-HostSafe "发现 $updateCount 个可更新的软件包。" -ForegroundColor Cyan
         $currentUpdate = 0
         foreach ($update in $updates) {
             $currentUpdate++
@@ -420,9 +450,9 @@ function Update-ScoopPackages {
             Show-HorizontalProgressBar -PercentComplete $percentComplete
             scoop update $packageId *>&1 | Out-Null
         }
-        Write-Host "`n所有 Scoop 软件包更新完成！" -ForegroundColor Green
+        Write-HostSafe "`n所有 Scoop 软件包更新完成！" -ForegroundColor Green
     } else {
-        Write-Host "所有 Scoop 软件包都是最新的。" -ForegroundColor Green
+        Write-HostSafe "所有 Scoop 软件包都是最新的。" -ForegroundColor Green
     }
 }
 
@@ -443,23 +473,27 @@ function Update-AllTools {
         $currentTool++
         $overallProgress = [math]::Floor(($currentTool / $totalTools) * 100)
         
-        Write-Host "`n正在更新 $($tool.Name) ($currentTool / $totalTools)" -ForegroundColor Cyan
+        Write-HostSafe "`n正在更新 $($tool.Name) ($currentTool / $totalTools)" -ForegroundColor Cyan
         Show-HorizontalProgressBar -PercentComplete $overallProgress
         
-        & $tool.Action
+        try {
+            & $tool.Action
+        } catch {
+            Write-HostSafe "更新 $($tool.Name) 时出错：$($_.Exception.Message)" -ForegroundColor Red
+        }
     }
 
-    Write-Host "`n所有工具更新完成！" -ForegroundColor Green
+    Write-HostSafe "`n所有工具更新完成！" -ForegroundColor Green
 }
 
 function Update-OhMyPosh {
     $currentVersion = (oh-my-posh --version).Trim()
     $latestVersion = (winget show JanDeDobbeleer.OhMyPosh | Select-String "版本" | Select-Object -First 1).ToString().Split()[-1]
     if ($currentVersion -ne $latestVersion) {
-        Write-Host "正在更新 Oh My Posh: $currentVersion -> $latestVersion" -ForegroundColor Yellow
+        Write-HostSafe "正在更新 Oh My Posh: $currentVersion -> $latestVersion" -ForegroundColor Yellow
         winget upgrade JanDeDobbeleer.OhMyPosh --accept-source-agreements
     } else {
-        Write-Host "Oh My Posh 已是最新版本 ($currentVersion)。" -ForegroundColor Green
+        Write-HostSafe "Oh My Posh 已是最新版本 ($currentVersion)。" -ForegroundColor Green
     }
 }
 
@@ -467,10 +501,10 @@ function Update-TerminalIcons {
     $currentModule = Get-Module -Name Terminal-Icons -ListAvailable | Sort-Object Version -Descending | Select-Object -First 1
     $onlineModule = Find-Module -Name Terminal-Icons
     if ($currentModule.Version -lt $onlineModule.Version) {
-        Write-Host "正在更新 Terminal-Icons: $($currentModule.Version) -> $($onlineModule.Version)" -ForegroundColor Yellow
+        Write-HostSafe "正在更新 Terminal-Icons: $($currentModule.Version) -> $($onlineModule.Version)" -ForegroundColor Yellow
         Update-Module -Name Terminal-Icons -Force
     } else {
-        Write-Host "Terminal-Icons 已是最新版本 ($($currentModule.Version))。" -ForegroundColor Green
+        Write-HostSafe "Terminal-Icons 已是最新版本 ($($currentModule.Version))。" -ForegroundColor Green
     }
 }
 
@@ -478,73 +512,73 @@ function Update-PSReadLine {
     $currentVersion = (Get-Module PSReadLine).Version
     $latestVersion = (Find-Module PSReadLine).Version
     if ($currentVersion -lt $latestVersion) {
-        Write-Host "PSReadLine 需要更新: $currentVersion -> $latestVersion" -ForegroundColor Yellow
-        Write-Host "请在 PowerShell 重启后运行以下命令：" -ForegroundColor Cyan
-        Write-Host "Install-Module PSReadLine -Force -Scope CurrentUser" -ForegroundColor Cyan
+        Write-HostSafe "PSReadLine 需要更新: $currentVersion -> $latestVersion" -ForegroundColor Yellow
+        Write-HostSafe "请在 PowerShell 重启后运行以下命令：" -ForegroundColor Cyan
+        Write-HostSafe "Install-Module PSReadLine -Force -Scope CurrentUser" -ForegroundColor Cyan
     } else {
-        Write-Host "PSReadLine 已是最新版本 ($currentVersion)。" -ForegroundColor Green
+        Write-HostSafe "PSReadLine 已是最新版本 ($currentVersion)。" -ForegroundColor Green
     }
 }
 
 function Update-Scoop {
-    Write-Host "正在更新 Scoop..." -ForegroundColor Yellow
+    Write-HostSafe "正在更新 Scoop..." -ForegroundColor Yellow
     scoop update
     $updates = scoop status | Where-Object { $_ -match '^\S+\s+:\s+\S+\s+->\s+\S+$' }
     if ($updates) {
-        Write-Host "发现以下可用更新：" -ForegroundColor Cyan
-        $updates | ForEach-Object { Write-Host $_ -ForegroundColor Green }
+        Write-HostSafe "发现以下可用更新：" -ForegroundColor Cyan
+        $updates | ForEach-Object { Write-HostSafe $_ -ForegroundColor Green }
         $updateCount = ($updates | Measure-Object).Count
         $currentUpdate = 0
         foreach ($update in $updates) {
             $currentUpdate++
             $packageId = ($update -split '\s+')[0]
             $percentComplete = [math]::Floor(($currentUpdate / $updateCount) * 100)
-            Write-Host "`r正在更新 $packageId ($currentUpdate / $updateCount)" -NoNewline
+            Write-HostSafe "`r正在更新 $packageId ($currentUpdate / $updateCount)" -NoNewline
             Show-HorizontalProgressBar -PercentComplete $percentComplete
             scoop update $packageId *>&1 | Out-Null
         }
-        Write-Host "`n所有 Scoop 软件包更新完成！" -ForegroundColor Green
+        Write-HostSafe "`n所有 Scoop 软件包更新完成！" -ForegroundColor Green
     } else {
-        Write-Host "所有 Scoop 软件包都是最新的。" -ForegroundColor Green
+        Write-HostSafe "所有 Scoop 软件包都是最新的。" -ForegroundColor Green
     }
 }
 
 function Update-Chocolatey {
-    Write-Host "正在更新 Chocolatey..." -ForegroundColor Yellow
+    Write-HostSafe "正在更新 Chocolatey..." -ForegroundColor Yellow
     choco upgrade chocolatey -y
     $chocoOutdated = choco outdated
     if ($chocoOutdated -notmatch "All packages are up-to-date") {
-        Write-Host "发现以下可用更新：" -ForegroundColor Cyan
-        $chocoOutdated | ForEach-Object { Write-Host $_ -ForegroundColor Green }
+        Write-HostSafe "发现以下可用更新：" -ForegroundColor Cyan
+        $chocoOutdated | ForEach-Object { Write-HostSafe $_ -ForegroundColor Green }
         choco upgrade all -y
     } else {
-        Write-Host "所有 Chocolatey 软件包都是最新的。" -ForegroundColor Green
+        Write-HostSafe "所有 Chocolatey 软件包都是最新的。" -ForegroundColor Green
     }
 }
 
 function Update-Winget {
-    Write-Host "正在检查 Winget 更新..." -ForegroundColor Yellow
+    Write-HostSafe "正在检查 Winget 更新..." -ForegroundColor Yellow
     $updateOutput = winget upgrade
     $updates = $updateOutput | Select-String -Pattern '^(\S+\s+){3}\S+\s+\S+' | Where-Object { $_ -notmatch '名称\s+ID\s+版本\s+可用\s+源' }
     
     if ($updates) {
         $updateCount = ($updates | Measure-Object).Count
-        Write-Host "发现 $updateCount 个可更新的软件包。" -ForegroundColor Cyan
-        $updates | ForEach-Object { Write-Host $_ -ForegroundColor Green }
+        Write-HostSafe "发现 $updateCount 个可更新的软件包。" -ForegroundColor Cyan
+        $updates | ForEach-Object { Write-HostSafe $_ -ForegroundColor Green }
         
-        Write-Host "正在更新所有软件包..." -ForegroundColor Yellow
+        Write-HostSafe "正在更新所有软件包..." -ForegroundColor Yellow
         $currentUpdate = 0
         foreach ($update in $updates) {
             $currentUpdate++
             $packageId = ($update -split '\s+')[0]
             $percentComplete = [math]::Floor(($currentUpdate / $updateCount) * 100)
-            Write-Host "`r正在更新 $packageId ($currentUpdate / $updateCount)" -NoNewline
+            Write-HostSafe "`r正在更新 $packageId ($currentUpdate / $updateCount)" -NoNewline
             Show-HorizontalProgressBar -PercentComplete $percentComplete
             winget upgrade $packageId --accept-source-agreements | Out-Null
         }
-        Write-Host "`n所有 Winget 软件包更新完成！" -ForegroundColor Green
+        Write-HostSafe "`n所有 Winget 软件包更新完成！" -ForegroundColor Green
     } else {
-        Write-Host "所有 Winget 软件包都是最新的。" -ForegroundColor Green
+        Write-HostSafe "所有 Winget 软件包都是最新的。" -ForegroundColor Green
     }
 }
 
@@ -574,17 +608,17 @@ function Manage-Tools {
         $bottomBorder = "└$horizontalLine┘"
         $middleBorder = "├$horizontalLine┤"
 
-        Write-Host $topBorder -ForegroundColor Cyan
+        Write-HostSafe $topBorder -ForegroundColor Cyan
         $titlePadded = $title.PadLeft([Math]::Floor(($width + $title.Length) / 2)).PadRight($width - 2)
-        Write-Host "│$titlePadded│" -ForegroundColor Cyan
-        Write-Host $middleBorder -ForegroundColor Cyan
+        Write-HostSafe "│$titlePadded│" -ForegroundColor Cyan
+        Write-HostSafe $middleBorder -ForegroundColor Cyan
         
         for ($i = 0; $i -lt $tools.Count; $i++) {
             $optionText = "[$i] $($tools[$i].Name)".PadRight($width - 3)
-            Write-Host "│ $optionText│" -ForegroundColor Yellow
+            Write-HostSafe "│ $optionText│" -ForegroundColor Yellow
         }
         
-        Write-Host $bottomBorder -ForegroundColor Cyan
+        Write-HostSafe $bottomBorder -ForegroundColor Cyan
         
         $choice = Read-Host "`n请选择要安装/更新的工具 (0-$($tools.Count - 1))"
 
@@ -593,16 +627,16 @@ function Manage-Tools {
             if ($selectedTool.Name -eq "返回主菜单") {
                 return
             }
-            Write-Host "正在安装/更新 $($selectedTool.Name)..." -ForegroundColor Cyan
+            Write-HostSafe "正在安装/更新 $($selectedTool.Name)..." -ForegroundColor Cyan
             try {
                 & $selectedTool.Action
-                Write-Host "$($selectedTool.Name) 安装/更新完成。" -ForegroundColor Green
+                Write-HostSafe "$($selectedTool.Name) 安装/更新完成。" -ForegroundColor Green
             } catch {
-                Write-Host "安装/更新 $($selectedTool.Name) 时出错：$($_.Exception.Message)" -ForegroundColor Red
+                Write-HostSafe "安装/更新 $($selectedTool.Name) 时出错：$($_.Exception.Message)" -ForegroundColor Red
             }
             Read-Host "按 Enter 键继续"
         } else {
-            Write-Host "无效的选择。" -ForegroundColor Red
+            Write-HostSafe "无效的选择。" -ForegroundColor Red
             Start-Sleep -Seconds 1
         }
     } while ($true)
@@ -690,39 +724,55 @@ function Show-ProfileMenu {
         @{Symbol="🌐"; Name="切换代理"; Action={Toggle-Proxy}},
         @{Symbol="🚀"; Name="执行PowerShell命令"; Action={Invoke-CustomCommand}},
         @{Symbol="📁"; Name="快速导航"; Action={Navigate-QuickAccess}},
-        @{Symbol="🔧"; Name="安装/更新工具"; Action={Show-ToolManagement}},
+        @{Symbol="🔧"; Name="安装/更新工具"; Action={Manage-Tools}},
         @{Symbol="🌐"; Name="网络诊断工具"; Action={Show-NetworkTools}},
         @{Symbol="📁"; Name="文件操作工具"; Action={Show-FileOperations}},
         @{Symbol="🔧"; Name="环境变量管理"; Action={Show-EnvVariableManagement}}
     )
 
-    do {
+    function Draw-Menu {
         Clear-Host
-        Write-Host "PowerShell 配置文件管理菜单" -ForegroundColor Cyan
-        Write-Host "================================" -ForegroundColor Cyan
+        $width = 70
+        $title = "PowerShell 配置文件管理菜单"
+        
+        $horizontalLine = "─" * ($width - 2)
+        $topBorder    = "┌$horizontalLine┐"
+        $bottomBorder = "└$horizontalLine┘"
+        $middleBorder = "├$horizontalLine┤"
+
+        Write-HostSafe $topBorder -ForegroundColor Cyan
+        $titlePadded = $title.PadLeft([Math]::Floor(($width + $title.Length) / 2)).PadRight($width - 2)
+        Write-HostSafe "│$titlePadded│" -ForegroundColor Cyan
+        Write-HostSafe $middleBorder -ForegroundColor Cyan
         
         for ($i = 0; $i -lt $options.Count; $i++) {
-            Write-Host ("[$i] " + $options[$i].Symbol + " " + $options[$i].Name) -ForegroundColor Yellow
+            $optionText = "[$i] $($options[$i].Symbol) $($options[$i].Name)".PadRight($width - 3)
+            Write-HostSafe "│ $optionText│" -ForegroundColor Yellow
         }
         
-        $choice = Read-Host "`n请输入您的选择 (0-$($options.Count - 1))，或按 'q' 退出"
+        Write-HostSafe $bottomBorder -ForegroundColor Cyan
+    }
+
+    do {
+        Draw-Menu
+        $choice = Read-Host "请输入您的选择 (0-$($options.Count - 1))，或按 'q' 退出"
         if ($choice -eq 'q' -or $choice -eq '0') {
             break
         }
         if ($choice -match '^\d+$' -and [int]$choice -ge 0 -and [int]$choice -lt $options.Count) {
             Clear-Host
-            Write-Host ("`n执行: " + $options[[int]$choice].Name) -ForegroundColor Cyan
-            Write-Host ("=" * ($options[[int]$choice].Name.Length + 8)) -ForegroundColor Cyan
+            Write-HostSafe ("`n执行: " + $options[[int]$choice].Name) -ForegroundColor Cyan
+            Write-HostSafe ("=" * ($options[[int]$choice].Name.Length + 8)) -ForegroundColor Cyan
             $result = & $options[[int]$choice].Action
             if ($result -is [bool] -and $result) {
                 break
             }
             if ($choice -ne '0') {
-                Write-Host "`n"
+                Write-HostSafe "`n"
                 Read-Host "按 Enter 键返回菜单"
             }
         } else {
-            Write-Host "`n无效的选择，请重试。" -ForegroundColor Red
+            Write-HostSafe "`n无效的选择，请重试。" -ForegroundColor Red
             Start-Sleep -Seconds 1
         }
     } while ($true)
@@ -730,7 +780,7 @@ function Show-ProfileMenu {
 
 function Update-Profile {
     # 实现更新配置文件的逻辑
-    Write-Host "正在检查更新..." -ForegroundColor Cyan
+    Write-HostSafe "正在检查更新..." -ForegroundColor Cyan
     # 这里添加实际的更新逻辑
 }
 
@@ -742,11 +792,11 @@ function Invoke-CustomCommand {
 function Navigate-QuickAccess {
     do {
         Clear-Host
-        Write-Host "快速导航" -ForegroundColor Cyan
-        Write-Host "0. 返回上级菜单"
-        Write-Host "1. 桌面"
-        Write-Host "2. 文档"
-        Write-Host "3. 下载"
+        Write-HostSafe "快速导航" -ForegroundColor Cyan
+        Write-HostSafe "0. 返回上级菜单"
+        Write-HostSafe "1. 桌面"
+        Write-HostSafe "2. 文档"
+        Write-HostSafe "3. 下载"
         
         $choice = Read-Host "请选择要导航到的位置"
         switch ($choice) {
@@ -755,14 +805,14 @@ function Navigate-QuickAccess {
             "2" { Set-Location ([Environment]::GetFolderPath("MyDocuments")) }
             "3" { Set-Location ([Environment]::GetFolderPath("UserProfile") + "\Downloads") }
             default { 
-                Write-Host "无效的选择，请重试。" -ForegroundColor Red
+                Write-HostSafe "无效的选择，请重试。" -ForegroundColor Red
                 Start-Sleep -Seconds 2
                 continue
             }
         }
         
         if ($choice -ne "0") {
-            Write-Host "当前位置：$(Get-Location)" -ForegroundColor Green
+            Write-HostSafe "当前位置：$(Get-Location)" -ForegroundColor Green
             Read-Host "按 Enter 键返回菜单"
         }
     } while ($true)
@@ -771,18 +821,18 @@ function Navigate-QuickAccess {
 function Show-NetworkTools {
     do {
         Clear-Host
-        Write-Host "网络诊断工具" -ForegroundColor Cyan
-        Write-Host "0. 返回上级菜单"
-        Write-Host "1. Ping 测试"
-        Write-Host "2. 路由跟踪"
-        Write-Host "3. 查看 IP 配置"
+        Write-HostSafe "网络诊断工具" -ForegroundColor Cyan
+        Write-HostSafe "0. 返回上级菜单"
+        Write-HostSafe "1. Ping 测试"
+        Write-HostSafe "2. 路由跟踪"
+        Write-HostSafe "3. 查看 IP 配置"
         $choice = Read-Host "请选择操作"
         switch ($choice) {
             "0" { return }
             "1" { Test-NetworkConnection }
             "2" { Get-TraceRoute }
             "3" { Get-IPConfiguration }
-            default { Write-Host "无效的选择，请重试。" -ForegroundColor Red }
+            default { Write-HostSafe "无效的选择，请重试。" -ForegroundColor Red }
         }
         if ($choice -ne "0") { Read-Host "按 Enter 键继续" }
     } while ($true)

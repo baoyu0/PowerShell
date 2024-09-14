@@ -18,26 +18,22 @@ function Show-ToolManagement {
             "返回上级菜单",
             "更新所有工具",
             "安装/更新 Oh My Posh",
-            "安装/更新 PowerShell 7",
-            "安装/更新 Git",
-            "安装/更新 Visual Studio Code",
-            "安装/更新 Windows Terminal",
+            "安装/更新 Terminal-Icons",
+            "安装/更新 PSReadLine",
             "安装/更新 Chocolatey",
             "安装/更新 Scoop",
-            "安装/更新 Winget"
+            "检查 Winget 更新"
         )
         
         switch ($choice) {
             0 { return }
             1 { Update-AllTools }
             2 { Install-OhMyPosh }
-            3 { Install-PowerShell7 }
-            4 { Install-Git }
-            5 { Install-VSCode }
-            6 { Install-WindowsTerminal }
-            7 { Install-Chocolatey }
-            8 { Install-Scoop }
-            9 { Install-Winget }
+            3 { Install-Module -Name Terminal-Icons -Force }
+            4 { Install-Module -Name PSReadLine -Force }
+            5 { Install-Chocolatey }
+            6 { Install-Scoop }
+            7 { Update-Winget }
         }
         
         if ($choice -ne 0) { Read-Host "按 Enter 键继续" }
@@ -45,32 +41,26 @@ function Show-ToolManagement {
 }
 
 function Update-AllTools {
-    Write-StatusMessage "正在更新所有工具..." -Type Warning
     $tools = @(
-        @{Name="Oh My Posh"; Action={Install-OhMyPosh}},
-        @{Name="PowerShell 7"; Action={Install-PowerShell7}},
-        @{Name="Git"; Action={Install-Git}},
-        @{Name="Visual Studio Code"; Action={Install-VSCode}},
-        @{Name="Windows Terminal"; Action={Install-WindowsTerminal}},
+        @{Name="Oh My Posh"; Action={Update-OhMyPosh}},
+        @{Name="Terminal-Icons"; Action={Update-TerminalIcons}},
+        @{Name="PSReadLine"; Action={Update-PSReadLine}},
         @{Name="Chocolatey"; Action={Update-Chocolatey}},
         @{Name="Scoop"; Action={Update-Scoop}},
         @{Name="Winget"; Action={Update-Winget}}
     )
-    
-    for ($i = 0; $i -lt $tools.Count; $i++) {
-        $tool = $tools[$i]
-        $percentComplete = ($i + 1) / $tools.Count * 100
-        Show-ProgressBar -PercentComplete $percentComplete -Status "正在更新 $($tool.Name)"
-        
+
+    Write-Host "正在更新所有工具..." -ForegroundColor Yellow
+    foreach ($tool in $tools) {
+        Write-Host "正在更新 $($tool.Name)..." -ForegroundColor Cyan
         try {
             & $tool.Action
-            Write-StatusMessage "$($tool.Name) 更新成功" -Type Success
+            Write-Host "$($tool.Name) 更新成功" -ForegroundColor Green
         } catch {
-            Write-StatusMessage "更新 $($tool.Name) 时发生错误：$($_.Exception.Message)" -Type Error
+            Write-Host "更新 $($tool.Name) 时发生错误：$($_.Exception.Message)" -ForegroundColor Red
         }
     }
-    
-    Write-StatusMessage "所有工具更新完成。" -Type Success
+    Write-Host "所有工具更新完成。" -ForegroundColor Green
 }
 
 function Install-OhMyPosh {
@@ -163,42 +153,129 @@ function Install-WindowsTerminal {
     }
 }
 
-function Update-Scoop {
-    Write-StatusMessage "正在更新 Scoop..." -Type Info
-    scoop update
-    $updates = scoop status
-    if ($updates) {
-        Write-StatusMessage "发现以下可用更新：" -Type Info
-        $updates | ForEach-Object { Write-Host $_ }
-        scoop update *
-    } else {
-        Write-StatusMessage "所有 Scoop 软件包都是最新的。" -Type Success
+function Install-Winget {
+    <#
+    .SYNOPSIS
+        安装或更新 Winget
+    .DESCRIPTION
+        该函数检查 Winget 是否已安装，如果未安装则尝试安装它。
+    .EXAMPLE
+        Install-Winget
+    #>
+    try {
+        if (Get-Command winget -ErrorAction SilentlyContinue) {
+            Write-Host "Winget 已安装，正在检查更新..." -ForegroundColor Yellow
+            Update-Winget
+        } else {
+            Write-Host "Winget 未安装，正在尝试安装..." -ForegroundColor Yellow
+            # 尝试从 Microsoft Store 安装 Winget
+            Start-Process "ms-windows-store://pdp/?ProductId=9nblggh4nns1" -Wait
+            Write-Host "请在 Microsoft Store 中完成 Winget 的安装，然后按任意键继续..." -ForegroundColor Cyan
+            [Console]::ReadKey($true) | Out-Null
+            
+            if (Get-Command winget -ErrorAction SilentlyContinue) {
+                Write-Host "Winget 安装成功。" -ForegroundColor Green
+            } else {
+                Write-Host "Winget 安装失败。请手动安装 Winget。" -ForegroundColor Red
+            }
+        }
+    }
+    catch {
+        Write-Host "安装/更新 Winget 时发生错误：$($_.Exception.Message)" -ForegroundColor Red
     }
 }
 
 function Update-Chocolatey {
-    Write-StatusMessage "正在更新 Chocolatey..." -Type Info
-    choco upgrade chocolatey -y
-    $updates = choco outdated
-    if ($updates -notmatch "Chocolatey has determined no packages are outdated") {
-        Write-StatusMessage "发现以下可用更新：" -Type Info
-        $updates | ForEach-Object { Write-Host $_ }
-        choco upgrade all -y
+    if (Get-Command choco -ErrorAction SilentlyContinue) {
+        Write-Host "正在更新 Chocolatey..." -ForegroundColor Yellow
+        choco upgrade chocolatey -y
     } else {
-        Write-StatusMessage "所有 Chocolatey 软件包都是最新的。" -Type Success
+        Write-Host "Chocolatey 未安装，跳过更新。" -ForegroundColor Yellow
+    }
+}
+
+function Update-Scoop {
+    if (Get-Command scoop -ErrorAction SilentlyContinue) {
+        Write-Host "正在更新 Scoop..." -ForegroundColor Yellow
+        scoop update
+    } else {
+        Write-Host "Scoop 未安装，跳过更新。" -ForegroundColor Yellow
     }
 }
 
 function Update-Winget {
-    Write-StatusMessage "正在检查 Winget 更新..." -Type Info
-    $updates = winget upgrade
-    if ($updates -match "升级可用") {
-        Write-StatusMessage "发现以下可用更新：" -Type Info
-        $updates | ForEach-Object { Write-Host $_ }
-        winget upgrade --all
+    if (Get-Command winget -ErrorAction SilentlyContinue) {
+        $wingetVersion = (winget --version).Trim()
+        Write-Host "当前 Winget 版本: $wingetVersion" -ForegroundColor Cyan
+
+        Write-Host "正在更新软件源..." -ForegroundColor Yellow
+        winget source update
+
+        Write-Host "正在检查可用更新..." -ForegroundColor Yellow
+        $updateOutput = winget upgrade
+        $updates = $updateOutput | Select-Object -Skip 2 | Where-Object { 
+            $_ -match '^\S+' -and 
+            $_ -notmatch '^\s*$' -and 
+            $_ -notmatch '^\s*名称\s+ID\s+版本\s+可用\s+源$' -and
+            $_ -notmatch '^\s*----' -and
+            $_ -notmatch '升级可用。$' -and
+            $_ -notmatch '程序包的版本号无法确定。'
+        }
+        
+        if ($updates) {
+            $updateCount = ($updates | Measure-Object).Count
+            Write-Host "发现 $updateCount 个可更新的软件包：" -ForegroundColor Green
+            $updates | ForEach-Object { Write-Host $_ -ForegroundColor Yellow }
+
+            $confirm = Read-Host "是否要更新所有软件包？(Y/N)"
+            if ($confirm -eq 'Y' -or $confirm -eq 'y') {
+                Write-Host "正在更新所有软件包，这可能需要一些时间..." -ForegroundColor Yellow
+                winget upgrade --all --include-unknown
+                Write-Host "所有 Winget 软件包更新完成！" -ForegroundColor Green
+            } else {
+                Write-Host "更新已取消。" -ForegroundColor Yellow
+            }
+        } else {
+            Write-Host "所有 Winget 软件包都是最新的。" -ForegroundColor Green
+        }
     } else {
-        Write-StatusMessage "所有 Winget 软件包都是最新的。" -Type Success
+        Write-Host "Winget 未找到。请确保 Windows 已更新到最新版本。" -ForegroundColor Yellow
     }
 }
 
-Export-ModuleMember -Function Show-ToolManagement, Update-AllTools, Install-OhMyPosh, Install-PowerShell7, Install-Git, Install-VSCode, Install-WindowsTerminal, Update-Scoop, Update-Chocolatey, Update-Winget
+function Update-PowerShell7 {
+    if ($PSVersionTable.PSVersion.Major -ge 7) {
+        Write-Host "正在更新 PowerShell 7..." -ForegroundColor Yellow
+        iex "& { $(irm https://aka.ms/install-powershell.ps1) } -UseMSI"
+    } else {
+        Write-Host "当前不是 PowerShell 7，跳过更新。" -ForegroundColor Yellow
+    }
+}
+
+function Update-Git {
+    if (Get-Command git -ErrorAction SilentlyContinue) {
+        Write-Host "正在更新 Git..." -ForegroundColor Yellow
+        git update-git-for-windows
+    } else {
+        Write-Host "Git 未安装，跳过更新。" -ForegroundColor Yellow
+    }
+}
+
+function Update-VSCode {
+    if (Get-Command code -ErrorAction SilentlyContinue) {
+        Write-Host "正在更新 Visual Studio Code..." -ForegroundColor Yellow
+        code --install-extension ms-vscode.powershell
+    } else {
+        Write-Host "Visual Studio Code 未安装，跳过更新。" -ForegroundColor Yellow
+    }
+}
+
+function Update-WindowsTerminal {
+    if (Get-Command wt -ErrorAction SilentlyContinue) {
+        Write-Host "Windows Terminal 已安装，请通过 Microsoft Store 更新。" -ForegroundColor Yellow
+    } else {
+        Write-Host "Windows Terminal 未安装，跳过更新。" -ForegroundColor Yellow
+    }
+}
+
+Export-ModuleMember -Function Show-ToolManagement, Update-AllTools, Install-OhMyPosh, Install-Chocolatey, Install-Scoop, Install-Winget, Update-Scoop, Update-Chocolatey, Update-Winget
