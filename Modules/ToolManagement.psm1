@@ -230,7 +230,15 @@ function Update-Winget {
             $confirm = Read-Host "是否要更新所有软件包？(Y/N)"
             if ($confirm -eq 'Y' -or $confirm -eq 'y') {
                 Write-Host "正在更新所有软件包，这可能需要一些时间..." -ForegroundColor Yellow
-                winget upgrade --all --include-unknown
+                $currentUpdate = 0
+                foreach ($update in $updates) {
+                    $currentUpdate++
+                    $packageId = ($update -split '\s+')[0]
+                    $percentComplete = [math]::Floor(($currentUpdate / $updateCount) * 100)
+                    Write-Progress -Activity "正在更新软件包" -Status "$packageId ($currentUpdate / $updateCount)" -PercentComplete $percentComplete
+                    winget upgrade $packageId --accept-source-agreements
+                }
+                Write-Progress -Activity "正在更新软件包" -Completed
                 Write-Host "所有 Winget 软件包更新完成！" -ForegroundColor Green
             } else {
                 Write-Host "更新已取消。" -ForegroundColor Yellow
