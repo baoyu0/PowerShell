@@ -1,0 +1,5 @@
+{
+    "ProxyPort": 20000,
+    "UpdateCheckInterval": 24,
+    "DefaultTheme": "1_shell"
+}
