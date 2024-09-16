@@ -63,3 +63,4 @@ $null = Register-EngineEvent -SourceIdentifier PowerShell.OnIdle -MaxTriggerCoun
     Initialize-PowerShellEnvironment
     Unregister-Event -SourceIdentifier PowerShell.OnIdle
 }
+
