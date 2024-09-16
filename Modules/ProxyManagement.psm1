@@ -1,4 +1,4 @@
-function Toggle-Proxy {
+function Set-ProxyStatus {
     param (
         [switch]$Enable,
         [switch]$Disable
@@ -89,4 +89,4 @@ function Toggle-Proxy {
     } while ($choice -ne "0")
 }
 
-Export-ModuleMember -Function Toggle-Proxy
+Export-ModuleMember -Function Set-ProxyStatus, Get-ProxyStatus, Enable-Proxy, Disable-Proxy

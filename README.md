@@ -1,13 +1,12 @@
 # PowerShell 配置文件
 
-这是一个功能丰富的 PowerShell 配置文件，包含以下特性：
+这是一个简洁的 PowerShell 配置文件，包含以下特性：
 
-- 自动代理设置
-- 常用工具安装和更新
-- 自定义提示符
-- 插件系统
-- 国际化支持
-- 单元测试
+- Oh My Posh 主题
+- PSReadLine 智能预测和快捷键设置
+- Terminal-Icons 支持
+- Winget 自动补全
+- 实用函数和别名
 
 ## 安装
 
@@ -16,8 +15,7 @@
 
 ## 使用
 
-- 使用 `Show-ProfileMenu` 或别名 `s` 打开配置文件管理菜单
-- 使用 `Update-Profile` 手动更新配置文件
+配置文件会自动加载。享受增强的 PowerShell 体验！
 
 ## 贡献
 

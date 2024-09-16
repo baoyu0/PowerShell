@@ -1,0 +1,24 @@
+# PowerShell
+*.ps1xml
+*.psc1
+*.psd1
+*.psm1
+*.pssc
+*.psrc
+*.cdxml
+
+# Logs
+*.log
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# macOS
+.DS_Store
+
+# Visual Studio Code
+.vscode/
+
+# Personal files
+*.personal
