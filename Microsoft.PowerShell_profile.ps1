@@ -1,66 +1,209 @@
-# PSReadLine 设置
-$PSReadLineOptions = @{
-    PredictionSource = 'History'
-    PredictionViewStyle = 'ListView'
-    Colors = @{ InlinePrediction = '#666666' }
-    HistorySearchCursorMovesToEnd = $true
-    EditMode = 'Emacs'
-}
-Set-PSReadLineOption @PSReadLineOptions
+# 代理管理模块
+$proxyModule = {
+    $script:defaultHttpProxy = "http://127.0.0.1:20000"
+    $script:defaultSocksProxy = "socks5://127.0.0.1:20000"
+    $script:proxyCache = @{}
 
-# 快捷键设置
-@{
-    'Ctrl+w' = 'BackwardDeleteWord'
-    'Tab' = 'MenuComplete'
-    'Ctrl+z' = 'Undo'
-    'UpArrow' = 'HistorySearchBackward'
-    'DownArrow' = 'HistorySearchForward'
-    'Ctrl+l' = 'ClearScreen'
-}.GetEnumerator() | ForEach-Object { Set-PSReadLineKeyHandler -Key $_.Key -Function $_.Value }
-
-# 实用函数和别名
-function Set-LocationUp { Set-Location .. }
-function Set-LocationUpUp { Set-Location ..\.. }
-Set-Alias -Name '..' -Value Set-LocationUp
-Set-Alias -Name '...' -Value Set-LocationUpUp
-Set-Alias -Name 'which' -Value Get-Command
-Set-Alias -Name 'touch' -Value New-Item
-Set-Alias -Name 'open' -Value Invoke-Item
-
-# 延迟加载函数
-function Initialize-PowerShellEnvironment {
-    # 主题设置
-    oh-my-posh init pwsh --config "$env:POSH_THEMES_PATH\1_shell.omp.json" | Invoke-Expression
-
-    # 启用模块
-    $ModulesToImport = @('Terminal-Icons', 'PowerGPT')
-    foreach ($module in $ModulesToImport) {
-        Import-Module -Name $module -ErrorAction SilentlyContinue
-    }
-
-    # Winget tab自动补全
-    Register-ArgumentCompleter -Native -CommandName winget -ScriptBlock {
-        param($wordToComplete, $commandAst, $cursorPosition)
-        $Local:word = $wordToComplete.Replace('"', '""')
-        $Local:ast = $commandAst.ToString().Replace('"', '""')
-        winget complete --word="$Local:word" --commandline "$Local:ast" --position $cursorPosition | ForEach-Object {
-            [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
+    function Clear-ProxyEnvironmentVariables {
+        $envVars = @('HTTP_PROXY', 'HTTPS_PROXY', 'FTP_PROXY', 'NO_PROXY', 'ALL_PROXY')
+        foreach ($var in $envVars) {
+            [System.Environment]::SetEnvironmentVariable($var, $null, 'User')
+            [System.Environment]::SetEnvironmentVariable($var, $null, 'Process')
+            Remove-Item Env:$var -ErrorAction SilentlyContinue
         }
     }
 
-    # 加载自定义模块
-    $customModules = @('ProxyManagement', 'CoreFunctions', 'EnvironmentManagement', 'FileOperations', 'MenuSystem')
-    foreach ($module in $customModules) {
-        $modulePath = Join-Path $PSScriptRoot "Modules\$module.psm1"
-        if (Test-Path $modulePath) {
-            Import-Module $modulePath -ErrorAction SilentlyContinue
+    function Test-ProxyAvailability {
+        param ([string]$Proxy)
+        try {
+            $webClient = New-Object System.Net.WebClient
+            $webClient.Proxy = New-Object System.Net.WebProxy($Proxy)
+            $webClient.DownloadString("https://www.microsoft.com") | Out-Null
+            return $true
+        } catch {
+            return $false
         }
     }
+
+    function Test-ProxySpeed {
+        param ([string]$Proxy)
+        $url = "https://www.microsoft.com"
+        
+        if ([string]::IsNullOrWhiteSpace($Proxy)) {
+            Write-Host "错误: 未设置代理地址" -ForegroundColor Red
+            return -1
+        }
+
+        try {
+            $webProxy = New-Object System.Net.WebProxy($Proxy)
+            $webClient = New-Object System.Net.WebClient
+            $webClient.Proxy = $webProxy
+            
+            $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+            $webClient.DownloadString($url) | Out-Null
+            $stopwatch.Stop()
+            return $stopwatch.ElapsedMilliseconds
+        } catch [System.UriFormatException] {
+            Write-Host "错误: 代理地址格式不正确 ($Proxy)" -ForegroundColor Red
+            return -1
+        } catch {
+            Write-Host "错误: 测试失败 - $($_.Exception.Message)" -ForegroundColor Red
+            return -1
+        }
+    }
+
+    function Set-SystemProxy {
+        param ([string]$Proxy, [bool]$Enable)
+        $regKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings"
+        if ($Enable) {
+            Set-ItemProperty -Path $regKey -Name ProxyEnable -Value 1
+            Set-ItemProperty -Path $regKey -Name ProxyServer -Value $Proxy
+        } else {
+            Set-ItemProperty -Path $regKey -Name ProxyEnable -Value 0
+            Remove-ItemProperty -Path $regKey -Name ProxyServer -ErrorAction SilentlyContinue
+        }
+    }
+
+    function Set-ProxyStatus {
+        param (
+            [Parameter(Mandatory=$true)]
+            [ValidateSet("On", "Off")]
+            [string]$Status,
+            [Parameter(Mandatory=$false)]
+            [string]$HttpProxy,
+            [Parameter(Mandatory=$false)]
+            [string]$SocksProxy
+        )
+
+        if ($Status -eq "On") {
+            $HttpProxy = if ($HttpProxy) { $HttpProxy } else { $script:defaultHttpProxy }
+            $SocksProxy = if ($SocksProxy) { $SocksProxy } else { $script:defaultSocksProxy }
+
+            if (Test-ProxyAvailability -Proxy $HttpProxy) {
+                [System.Environment]::SetEnvironmentVariable('HTTP_PROXY', $HttpProxy, 'User')
+                [System.Environment]::SetEnvironmentVariable('HTTPS_PROXY', $HttpProxy, 'User')
+                [System.Environment]::SetEnvironmentVariable('ALL_PROXY', $SocksProxy, 'User')
+                $env:HTTP_PROXY = $HttpProxy
+                $env:HTTPS_PROXY = $HttpProxy
+                $env:ALL_PROXY = $SocksProxy
+                Set-SystemProxy -Proxy $HttpProxy -Enable $true
+                Write-Host "代理已开启:" -ForegroundColor Green
+                Write-Host "HTTP 代理: $HttpProxy" -ForegroundColor Green
+                Write-Host "SOCKS 代理: $SocksProxy" -ForegroundColor Green
+            } else {
+                Write-Host "代理不可用，请检查设置。" -ForegroundColor Red
+                return
+            }
+        } else {
+            Clear-ProxyEnvironmentVariables
+            Set-SystemProxy -Enable $false
+            Write-Host "代理已关闭" -ForegroundColor Yellow
+        }
+        $script:proxyCache.Clear()
+    }
+
+    function Get-ProxyStatus {
+        $httpProxy = [System.Environment]::GetEnvironmentVariable('HTTP_PROXY', 'User')
+        $socksProxy = [System.Environment]::GetEnvironmentVariable('ALL_PROXY', 'User')
+        
+        Write-Host "┃ 当前代理设置:                                            ┃" -ForegroundColor Cyan
+        if ($httpProxy -or $socksProxy) {
+            if ($httpProxy) { 
+                $paddedHttpProxy = "{0,-54}" -f "HTTP 代理: $httpProxy"
+                Write-Host "┃ $paddedHttpProxy ┃" -ForegroundColor Green
+            }
+            if ($socksProxy) { 
+                $paddedSocksProxy = "{0,-54}" -f "SOCKS 代理: $socksProxy"
+                Write-Host "┃ $paddedSocksProxy ┃" -ForegroundColor Green
+            }
+            Write-Host "┃ 当前网络代理状态: ● 已开启                                ┃" -ForegroundColor Green
+        } else {
+            Write-Host "┃ 当前网络代理状态: ○ 已关闭                                ┃" -ForegroundColor Red
+        }
+    }
+
+    function Show-ProxyMenu {
+        do {
+            Clear-Host
+            Write-Host "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" -ForegroundColor Cyan
+            Write-Host "┃                     网络代理设置管理                     ┃" -ForegroundColor Cyan
+            Write-Host "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫" -ForegroundColor Cyan
+            Get-ProxyStatus
+            Write-Host "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫" -ForegroundColor Cyan
+            Write-Host "┃ [0] ◀ 返回主菜单                                         ┃" -ForegroundColor Yellow
+            Write-Host "┃ [1] ● 开启网络代理                                       ┃" -ForegroundColor Green
+            Write-Host "┃ [2] ○ 关闭网络代理                                       ┃" -ForegroundColor Red
+            Write-Host "┃ [3] ◉ 设置 HTTP 代理                                     ┃" -ForegroundColor Blue
+            Write-Host "┃ [4] ◎ 设置 SOCKS 代理                                    ┃" -ForegroundColor Magenta
+            Write-Host "┃ [5] ⚡ 测试当前代理速度                                   ┃" -ForegroundColor Cyan
+            Write-Host "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛" -ForegroundColor Cyan
+
+            $choice = Read-Host "请选择操作 (0-5)"
+
+            switch ($choice) {
+                "0" { return }
+                "1" { Set-ProxyStatus -Status On }
+                "2" { Set-ProxyStatus -Status Off }
+                "3" {
+                    $newHttpProxy = Read-Host "请输入新的 HTTP 代理地址 (格式: http://127.0.0.1:7890) 或直接回车保持当前设置"
+                    if ([string]::IsNullOrWhiteSpace($newHttpProxy)) {
+                        Write-Host "✅ 保持当前 HTTP 代理设置不变" -ForegroundColor Yellow
+                    } else {
+                        if ($newHttpProxy -notmatch ':\d+$') {
+                            $newHttpProxy += ':7890'
+                        }
+                        Set-ProxyStatus -Status On -HttpProxy $newHttpProxy
+                        $script:defaultHttpProxy = $newHttpProxy
+                    }
+                }
+                "4" {
+                    $newSocksProxy = Read-Host "请输入新的 SOCKS 代理地址 (格式: socks5://127.0.0.1:7890) 或直接回车保持当前设置"
+                    if ([string]::IsNullOrWhiteSpace($newSocksProxy)) {
+                        Write-Host "✅ 保持当前 SOCKS 代理设置不变" -ForegroundColor Yellow
+                    } else {
+                        if ($newSocksProxy -notmatch ':\d+$') {
+                            $newSocksProxy += ':7890'
+                        }
+                        Set-ProxyStatus -Status On -SocksProxy $newSocksProxy
+                        $script:defaultSocksProxy = $newSocksProxy
+                    }
+                }
+                "5" {
+                    $currentProxy = $env:HTTP_PROXY
+                    if ([string]::IsNullOrWhiteSpace($currentProxy)) {
+                        Write-Host "当前未设置 HTTP 代理，无法测试速度。" -ForegroundColor Yellow
+                    } else {
+                        Write-Host "正在测试代理速度，请稍候..." -ForegroundColor Cyan
+                        $speed = Test-ProxySpeed -Proxy $currentProxy
+                        if ($speed -ge 0) {
+                            Write-Host "当前代理 ($currentProxy) 响应时间: $speed 毫秒" -ForegroundColor Green
+                        }
+                    }
+                }
+                default { Write-Host "❌ 无效选项，请重试。" -ForegroundColor Red }
+            }
+
+            if ($choice -ne "0") {
+                Write-Host ""
+                Read-Host "按回车键继续..."
+            }
+        } while ($choice -ne "0")
+    }
+
+    function Switch-Proxy {
+        $currentStatus = [System.Environment]::GetEnvironmentVariable('HTTP_PROXY', 'User')
+        if ($currentStatus) {
+            Set-ProxyStatus -Status Off
+        } else {
+            Set-ProxyStatus -Status On
+        }
+        Get-ProxyStatus
+    }
+
+    Export-ModuleMember -Function Set-ProxyStatus, Get-ProxyStatus, Show-ProxyMenu, Switch-Proxy
 }
 
-# 使用 PowerShell 的事件系统来延迟加载
-$null = Register-EngineEvent -SourceIdentifier PowerShell.OnIdle -MaxTriggerCount 1 -Action {
-    Initialize-PowerShellEnvironment
-    Unregister-Event -SourceIdentifier PowerShell.OnIdle
-}
+New-Module -Name ProxyManagement -ScriptBlock $proxyModule | Import-Module
 
+Set-Alias -Name proxy -Value Show-ProxyMenu
+Set-Alias -Name proxyswitch -Value Switch-Proxy
