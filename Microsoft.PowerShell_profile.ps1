@@ -11,6 +11,7 @@ $proxyModule = {
             [System.Environment]::SetEnvironmentVariable($var, $null, 'Process')
             Remove-Item Env:$var -ErrorAction SilentlyContinue
         }
+        Write-Host "✅ 已清除所有代理环境变量" -ForegroundColor Green
     }
 
     function Test-ProxyAvailability {
@@ -19,8 +20,10 @@ $proxyModule = {
             $webClient = New-Object System.Net.WebClient
             $webClient.Proxy = New-Object System.Net.WebProxy($Proxy)
             $webClient.DownloadString("https://www.microsoft.com") | Out-Null
+            Write-Host "✅ 代理 ($Proxy) 可用" -ForegroundColor Green
             return $true
         } catch {
+            Write-Host "❌ 代理 ($Proxy) 不可用" -ForegroundColor Red
             return $false
         }
     }
@@ -42,6 +45,7 @@ $proxyModule = {
             $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
             $webClient.DownloadString($url) | Out-Null
             $stopwatch.Stop()
+            Write-Host "✅ 代理 ($Proxy) 响应时间: $($stopwatch.ElapsedMilliseconds) 毫秒" -ForegroundColor Green
             return $stopwatch.ElapsedMilliseconds
         } catch [System.UriFormatException] {
             Write-Host "错误: 代理地址格式不正确 ($Proxy)" -ForegroundColor Red
@@ -58,9 +62,11 @@ $proxyModule = {
         if ($Enable) {
             Set-ItemProperty -Path $regKey -Name ProxyEnable -Value 1
             Set-ItemProperty -Path $regKey -Name ProxyServer -Value $Proxy
+            Write-Host "✅ 系统代理已设置为: $Proxy" -ForegroundColor Green
         } else {
             Set-ItemProperty -Path $regKey -Name ProxyEnable -Value 0
             Remove-ItemProperty -Path $regKey -Name ProxyServer -ErrorAction SilentlyContinue
+            Write-Host "✅ 系统代理已禁用" -ForegroundColor Yellow
         }
     }
 
@@ -136,14 +142,29 @@ $proxyModule = {
             Write-Host "┃ [3] ◉ 设置 HTTP 代理                                     ┃" -ForegroundColor Blue
             Write-Host "┃ [4] ◎ 设置 SOCKS 代理                                    ┃" -ForegroundColor Magenta
             Write-Host "┃ [5] ⚡ 测试当前代理速度                                   ┃" -ForegroundColor Cyan
+            Write-Host "┃ [6] ❓ 帮助信息                                           ┃" -ForegroundColor White
             Write-Host "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛" -ForegroundColor Cyan
 
-            $choice = Read-Host "请选择操作 (0-5)"
+            $choice = Read-Host "请选择操作 (0-6)"
 
             switch ($choice) {
                 "0" { return }
-                "1" { Set-ProxyStatus -Status On }
-                "2" { Set-ProxyStatus -Status Off }
+                "1" { 
+                    $confirm = Read-Host "确认开启网络代理? (y/n)"
+                    if ($confirm -eq "y") {
+                        Set-ProxyStatus -Status On 
+                    } else {
+                        Write-Host "操作已取消" -ForegroundColor Yellow
+                    }
+                }
+                "2" { 
+                    $confirm = Read-Host "确认关闭网络代理? (y/n)"
+                    if ($confirm -eq "y") {
+                        Set-ProxyStatus -Status Off 
+                    } else {
+                        Write-Host "操作已取消" -ForegroundColor Yellow
+                    }
+                }
                 "3" {
                     $newHttpProxy = Read-Host "请输入新的 HTTP 代理地址 (格式: http://127.0.0.1:7890) 或直接回车保持当前设置"
                     if ([string]::IsNullOrWhiteSpace($newHttpProxy)) {
@@ -179,6 +200,16 @@ $proxyModule = {
                             Write-Host "当前代理 ($currentProxy) 响应时间: $speed 毫秒" -ForegroundColor Green
                         }
                     }
+                }
+                "6" {
+                    Write-Host "帮助信息:" -ForegroundColor White
+                    Write-Host "[0] 返回主菜单" -ForegroundColor Yellow
+                    Write-Host "[1] 开启网络代理: 启用当前设置的 HTTP 和 SOCKS 代理。" -ForegroundColor Green
+                    Write-Host "[2] 关闭网络代理: 禁用当前设置的 HTTP 和 SOCKS 代理。" -ForegroundColor Red
+                    Write-Host "[3] 设置 HTTP 代理: 输入新的 HTTP 代理地址。" -ForegroundColor Blue
+                    Write-Host "[4] 设置 SOCKS 代理: 输入新的 SOCKS 代理地址。" -ForegroundColor Magenta
+                    Write-Host "[5] 测试当前代理速度: 测试当前设置的 HTTP 代理的响应速度。" -ForegroundColor Cyan
+                    Write-Host "[6] 显示帮助信息: 显示此帮助信息。" -ForegroundColor White
                 }
                 default { Write-Host "❌ 无效选项，请重试。" -ForegroundColor Red }
             }
