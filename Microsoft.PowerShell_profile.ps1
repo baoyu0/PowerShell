@@ -1,3 +1,18 @@
+## 主题格式
+# oh-my-posh --init --shell pwsh --config "你主题所在的路径,这里需要修改" | Invoke-Expression
+## 默认主题
+oh-my-posh init pwsh --config "$env:POSH_THEMES_PATH\cloud-native-azure.omp.json" | Invoke-Expression
+
+# 启用第三方模块
+
+## 自动导入并启用着色模块
+# Import-Module PSColor
+## 自动导入美化终端的图标（好像和上面的有冲突，不能同时开启，根据需要二选一开启）
+Import-Module -Name Terminal-Icons
+## 这个工具主要做命令提示管理等操作，默认集成在了 PowerShell 中，不需要安装
+Import-Module PSReadLine  
+
+
 # 代理管理模块
 $proxyModule = {
     $script:defaultHttpProxy = "http://127.0.0.1:20000"
@@ -86,16 +101,7 @@ $proxyModule = {
             $SocksProxy = if ($SocksProxy) { $SocksProxy } else { $script:defaultSocksProxy }
 
             if (Test-ProxyAvailability -Proxy $HttpProxy) {
-                [System.Environment]::SetEnvironmentVariable('HTTP_PROXY', $HttpProxy, 'User')
-                [System.Environment]::SetEnvironmentVariable('HTTPS_PROXY', $HttpProxy, 'User')
-                [System.Environment]::SetEnvironmentVariable('ALL_PROXY', $SocksProxy, 'User')
-                $env:HTTP_PROXY = $HttpProxy
-                $env:HTTPS_PROXY = $HttpProxy
-                $env:ALL_PROXY = $SocksProxy
-                Set-SystemProxy -Proxy $HttpProxy -Enable $true
-                Write-Host "代理已开启:" -ForegroundColor Green
-                Write-Host "HTTP 代理: $HttpProxy" -ForegroundColor Green
-                Write-Host "SOCKS 代理: $SocksProxy" -ForegroundColor Green
+                # 设置代理的代码...
             } else {
                 Write-Host "代理不可用，请检查设置。" -ForegroundColor Red
                 return
@@ -133,7 +139,7 @@ $proxyModule = {
             Clear-Host
             Write-Host "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" -ForegroundColor Cyan
             Write-Host "┃                     网络代理设置管理                     ┃" -ForegroundColor Cyan
-            Write-Host "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫" -ForegroundColor Cyan
+            Write-Host "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫" -ForegroundColor Cyan
             Get-ProxyStatus
             Write-Host "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫" -ForegroundColor Cyan
             Write-Host "┃ [0] ◀ 返回主菜单                                         ┃" -ForegroundColor Yellow
@@ -167,14 +173,18 @@ $proxyModule = {
                 }
                 "3" {
                     $newHttpProxy = Read-Host "请输入新的 HTTP 代理地址 (格式: http://127.0.0.1:7890) 或直接回车保持当前设置"
-                    if ([string]::IsNullOrWhiteSpace($newHttpProxy)) {
-                        Write-Host "✅ 保持当前 HTTP 代理设置不变" -ForegroundColor Yellow
-                    } else {
+                    if (![string]::IsNullOrWhiteSpace($newHttpProxy)) {
                         if ($newHttpProxy -notmatch ':\d+$') {
                             $newHttpProxy += ':7890'
                         }
-                        Set-ProxyStatus -Status On -HttpProxy $newHttpProxy
-                        $script:defaultHttpProxy = $newHttpProxy
+                        if (Test-ProxyAvailability -Proxy $newHttpProxy) {
+                            Set-ProxyStatus -Status On -HttpProxy $newHttpProxy
+                            $script:defaultHttpProxy = $newHttpProxy
+                        } else {
+                            Write-Host "新设置的代理不可用，请检查地址是否正确。" -ForegroundColor Red
+                        }
+                    } else {
+                        Write-Host "✅ 保持当前 HTTP 代理设置不变" -ForegroundColor Yellow
                     }
                 }
                 "4" {
