@@ -13,3 +13,10 @@ function prompt {
     
     "${envPrefix}PS ${location}${promptChar} "
 }
+
+function global:Show-CoreSettingsHelp {
+    Write-Host "核心设置模块帮助：" -ForegroundColor Cyan
+    Write-Host "  设置 PSReadLine 选项"
+    Write-Host "  定义自定义提示符"
+    # 添加更多核心设置的描述
+}
