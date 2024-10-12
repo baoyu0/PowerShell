@@ -18,7 +18,7 @@ function global:Save-ThemeConfig {
         PromptStyle = $script:currentPromptStyle
     }
     $config | ConvertTo-Json | Set-Content -Path $global:configFile
-    Write-Log "主题配置已保存到 $global:configFile"
+    Write-Host "主题配置已保存到 $global:configFile" -ForegroundColor Green
 }
 
 function global:Load-ThemeConfig {
@@ -83,30 +83,23 @@ function global:Set-PowerShellTheme {
     }
 
     try {
-        Write-Host "正在应用 $ThemeName 主题..." -ForegroundColor Yellow
         $theme = $global:themes[$ThemeName]
         if ($null -eq $theme) {
             throw "主题 '$ThemeName' 未定义"
         }
 
-        # 使用 ANSI 轭义序列设置颜色
-        $esc = [char]27
-        $backgroundCode = switch ($theme.Background) {
-            "Black" { "40" }
-            "DarkBlue" { "44" }
-            # 添加其他颜色的映射...
-        }
-        $foregroundCode = switch ($theme.Foreground) {
-            "Green" { "32" }
-            "Gray" { "37" }
-            # 添加其他颜色的映射...
-        }
-
-        Write-Host "${esc}[${backgroundCode}m${esc}[${foregroundCode}m"
+        $Host.UI.RawUI.BackgroundColor = [System.ConsoleColor]$theme.Background
+        $Host.UI.RawUI.ForegroundColor = [System.ConsoleColor]$theme.Foreground
+        $Host.PrivateData.ErrorForegroundColor = [System.ConsoleColor]$theme.ErrorForeground
+        $Host.PrivateData.WarningForegroundColor = [System.ConsoleColor]$theme.WarningForeground
+        $Host.PrivateData.VerboseForegroundColor = [System.ConsoleColor]$theme.VerboseForeground
 
         $script:currentTheme = $ThemeName
         Save-ThemeConfig
         Write-Host "已成功应用并保存 $ThemeName 主题" -ForegroundColor Green
+    
+        # 刷新控制台颜色
+        [Console]::Clear()
     } catch {
         Write-Error "设置主题时出错: $_"
     }
@@ -157,7 +150,7 @@ function global:Set-CustomPrompt {
 
     $script:currentPromptStyle = $Style
     Save-ThemeConfig
-    Write-Log "已设置并保存 $Style 提示符样式"
+    Write-Host "已设置并保存 $Style 提示符样式" -ForegroundColor Green
 }
 
 # 修改模块帮助信息函数
@@ -166,6 +159,7 @@ function global:Show-ThemeManagerHelp {
     Write-Host "  Set-PowerShellTheme <ThemeName> - 设置 PowerShell 主题 (可选: Default, Light, Solarized)"
     Write-Host "  Get-CurrentTheme               - 显示当前使用的主题"
     Write-Host "  Set-CustomPrompt <Style>       - 设置提示符样式 (可选: Default, Minimal, Informative)"
+    Write-Host "  Get-AvailableThemes            - 列出所有可用的主题及其详细信息"
 }
 
 # 初始化默认主题和提示符，但不显示信息
@@ -174,3 +168,19 @@ Set-CustomPrompt "Default" | Out-Null
 
 # 初始化时加载保存的配置，但不显示信息
 Load-ThemeConfig | Out-Null
+
+# 在文件的适当位置添加以下函数
+
+function global:Get-AvailableThemes {
+    Write-Host "可用的主题：" -ForegroundColor Cyan
+    foreach ($themeName in $global:themes.Keys) {
+        $theme = $global:themes[$themeName]
+        Write-Host "  $themeName" -ForegroundColor Green
+        Write-Host "    背景色: $($theme.Background)"
+        Write-Host "    前景色: $($theme.Foreground)"
+        Write-Host "    错误文本颜色: $($theme.ErrorForeground)"
+        Write-Host "    警告文本颜色: $($theme.WarningForeground)"
+        Write-Host "    详细信息文本颜色: $($theme.VerboseForeground)"
+        Write-Host ""
+    }
+}

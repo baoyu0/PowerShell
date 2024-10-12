@@ -18,7 +18,13 @@ function Install-ModuleIfMissing {
     param([string]$ModuleName)
     if (-not (Get-Module -ListAvailable -Name $ModuleName)) {
         Write-Host "正在安装 $ModuleName 模块..." -ForegroundColor Yellow
-        Install-Module -Name $ModuleName -Scope CurrentUser -Force
+        try {
+            Install-Module -Name $ModuleName -Scope CurrentUser -Force -ErrorAction Stop
+            Write-Host "$ModuleName 模块安装成功" -ForegroundColor Green
+        } catch {
+            Write-Warning "安装 $ModuleName 模块失败: $_"
+            Write-Host "请尝试以管理员身份运行 PowerShell 并重新执行此命令" -ForegroundColor Yellow
+        }
     }
 }
 

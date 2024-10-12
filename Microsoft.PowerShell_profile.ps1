@@ -29,20 +29,32 @@ function Import-ConfigModule {
             return $true
         } catch {
             Write-Log "错误: 加载模块 $ModuleName 失败 - $_"
+            Write-Host "错误: 加载模块 $ModuleName 失败。请检查日志文件获取详细信息。" -ForegroundColor Red
             return $false
         }
     } else {
         Write-Log "警告: 配置模块 $ModuleName 不存在"
+        Write-Host "警告: 配置模块 $ModuleName 不存在" -ForegroundColor Yellow
         return $false
     }
 }
 
-# 静默加载所有模块
-$modules | ForEach-Object { Import-ConfigModule $_ | Out-Null }
+# 修改模块加载部分
+$failedModules = @()
+$modules | ForEach-Object { 
+    if (-not (Import-ConfigModule $_)) {
+        $failedModules += $_
+    }
+}
+
+if ($failedModules.Count -gt 0) {
+    Write-Host "警告: 以下模块加载失败: $($failedModules -join ', ')" -ForegroundColor Yellow
+    Write-Host "某些功能可能无法正常工作。请检查日志文件获取详细信息。" -ForegroundColor Yellow
+}
 
 # 加载主题配置
 if (Get-Command Load-ThemeConfig -ErrorAction SilentlyContinue) {
-    Load-ThemeConfig -ErrorAction SilentlyContinue | Out-Null
+    Load-ThemeConfig | Out-Null
 }
 
 function Show-WelcomeMessage {
