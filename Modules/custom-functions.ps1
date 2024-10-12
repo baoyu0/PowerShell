@@ -1,7 +1,7 @@
 # 自定义函数
 
 # 更新 PowerShell 配置文件
-function Update-Profile {
+function global:Update-Profile {
     $profilePath = $PROFILE
     $backupPath = "$profilePath.backup"
     
@@ -18,7 +18,7 @@ function Update-Profile {
 }
 
 # 网络连接测试
-function Test-NetworkConnection {
+function global:Test-NetworkConnection {
     $testUrl = "https://www.microsoft.com"
     try {
         Invoke-WebRequest -Uri $testUrl -UseBasicParsing -TimeoutSec 5 | Out-Null
