@@ -2,15 +2,12 @@
 
 这是一个简洁的 PowerShell 配置文件，包含以下特性：
 
-- Oh My Posh 主题
 - PSReadLine 智能预测和快捷键设置
 - Terminal-Icons 支持
-- Winget 自动补全
 - 实用函数和别名
 - 代理管理模块
 - 自动更新检查
-- 错误报告功能
-- 延迟加载模块
+- 主题管理
 
 ## 安装
 
@@ -46,10 +43,6 @@
 ## 主题管理
 
 使用 `Set-PowerShellTheme` 和 `Set-CustomPrompt` 来自定义您的 PowerShell 外观。
-
-## 错误报告
-
-如果遇到错误，系统会自动生成错误报告并保存在 `error_reports` 目录中。
 
 ## 贡献
 
