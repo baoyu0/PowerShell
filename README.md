@@ -8,6 +8,9 @@
 - Winget 自动补全
 - 实用函数和别名
 - 代理管理模块
+- 自动更新检查
+- 错误报告功能
+- 延迟加载模块
 
 ## 安装
 
@@ -26,8 +29,6 @@
 
 使用 `Invoke-ProxyManager` 函数来管理代理设置。为了保持向后兼容性，`Manage-Proxy` 别名也可以使用。
 
-示例：
-
 #### 可用命令
 
 - `Set-ProxyStatus On/Off [HttpProxy] [SocksProxy]` - 开启或关闭代理
@@ -40,10 +41,15 @@
 
 - `Update-Profile` - 更新并重新加载 PowerShell 配置文件
 - `Test-NetworkConnection` - 测试网络连接
+- `Test-ProfileUpdate` - 检查配置文件是否有可用更新
 
 ## 主题管理
 
 使用 `Set-PowerShellTheme` 和 `Set-CustomPrompt` 来自定义您的 PowerShell 外观。
+
+## 错误报告
+
+如果遇到错误，系统会自动生成错误报告并保存在 `error_reports` 目录中。
 
 ## 贡献
 

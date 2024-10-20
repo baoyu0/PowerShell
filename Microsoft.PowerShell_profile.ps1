@@ -116,3 +116,53 @@ Write-Host "配置文件加载时间: $($loadTime.ToString("F0"))ms" -Foreground
 if (-not (Get-Command Show-ProxyMenu -ErrorAction SilentlyContinue)) {
     Import-ConfigModule "proxy-management"
 }
+
+# 在文件开头添加版本号
+$script:profileVersion = "1.1.0"
+
+# 添加延迟加载功能
+$script:lazyLoadModules = @("theme-manager", "proxy-management")
+
+function Import-LazyModule {
+    param([string]$ModuleName)
+    if ($script:lazyLoadModules -contains $ModuleName) {
+        Import-ConfigModule $ModuleName
+        $script:lazyLoadModules = $script:lazyLoadModules | Where-Object { $_ -ne $ModuleName }
+    }
+}
+
+# 添加错误报告功能
+function New-ErrorReport {
+    param([string]$ErrorMessage)
+    $reportPath = Join-Path $configPath "error_reports"
+    if (-not (Test-Path $reportPath)) {
+        New-Item -ItemType Directory -Path $reportPath | Out-Null
+    }
+    $reportFile = Join-Path $reportPath "error_report_$(Get-Date -Format 'yyyyMMdd_HHmmss').txt"
+    @"
+错误报告
+时间: $(Get-Date)
+版本: $script:profileVersion
+错误信息:
+$ErrorMessage
+"@ | Out-File $reportFile
+    Write-Host "错误报告已保存到: $reportFile" -ForegroundColor Yellow
+}
+
+# 添加自动更新检查功能
+function Test-ProfileUpdate {
+    $repoPath = Split-Path $PROFILE
+    if (Test-Path (Join-Path $repoPath ".git")) {
+        try {
+            $status = git -C $repoPath status -uno
+            if ($status -match "Your branch is behind") {
+                Write-Host "PowerShell 配置文件有可用更新。运行 Update-Profile 来更新。" -ForegroundColor Yellow
+            }
+        } catch {
+            Write-Warning "检查更新失败: $_"
+        }
+    }
+}
+
+# 在配置文件加载完成后调用更新检查
+Test-ProfileUpdate
