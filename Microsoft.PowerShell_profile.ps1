@@ -39,22 +39,42 @@ function Import-ConfigModule {
     }
 }
 
+# 创建或加载缓存文件
+$cacheFile = Join-Path $env:TEMP "PowerShell_ModuleCache.clixml"
+if (Test-Path $cacheFile) {
+    $moduleCache = Import-Clixml $cacheFile
+} else {
+    $moduleCache = @{}
+}
+
 # 修改模块加载部分
-$failedModules = @()
+$failedModules = @{}
+
+# 修改添加失败模块的逻辑
 $modules | ForEach-Object { 
-    if (-not (Import-ConfigModule $_)) {
-        $failedModules += $_
+    if (-not $moduleCache.ContainsKey($_) -or -not $moduleCache[$_]) {
+        if (Import-ConfigModule $_) {
+            $moduleCache[$_] = $true
+        } else {
+            $failedModules[$_] = $false
+            $moduleCache[$_] = $false
+        }
+    } elseif (-not $moduleCache[$_]) {
+        $failedModules[$_] = $false
     }
 }
 
+# 保存缓存
+$moduleCache | Export-Clixml $cacheFile
+
 if ($failedModules.Count -gt 0) {
-    Write-Host "警告: 以下模块加载失败: $($failedModules -join ', ')" -ForegroundColor Yellow
+    Write-Host "警告: 以下模块加载失败: $($failedModules.Keys -join ', ')" -ForegroundColor Yellow
     Write-Host "某些功能可能无法正常工作。请检查日志文件获取详细信息。" -ForegroundColor Yellow
 }
 
 # 加载主题配置
-if (Get-Command Load-ThemeConfig -ErrorAction SilentlyContinue) {
-    Load-ThemeConfig | Out-Null
+if (Get-Command Import-ThemeConfig -ErrorAction SilentlyContinue) {
+    Import-ThemeConfig | Out-Null
 }
 
 function Show-WelcomeMessage {
@@ -76,8 +96,6 @@ function Get-ModuleHelp {
     & $helpFunctionName
 }
 
-# 其他必要的函数定义（如 Show-AllModulesHelp）保持不变
-
 function Show-AllModulesHelp {
     Write-Host "PowerShell 配置模块摘要" -ForegroundColor Cyan
     Write-Host "========================" -ForegroundColor Cyan
@@ -90,14 +108,11 @@ function Show-AllModulesHelp {
     Write-Host "`n使用 'Get-ModuleHelp <模块名>' 来查看特定模块的详细帮助信息" -ForegroundColor Cyan
 }
 
-# 添加别名
-Set-Alias -Name help-all -Value Show-AllModulesHelp
-
 $endTime = Get-Date
 $loadTime = ($endTime - $startTime).TotalMilliseconds
 Write-Host "配置文件加载时间: $($loadTime.ToString("F0"))ms" -ForegroundColor DarkGray
 
-# 在文件末尾添加
-function Manage-Proxy {
-    Show-ProxyMenu
+# 确保代理管理模块已加载
+if (-not (Get-Command Show-ProxyMenu -ErrorAction SilentlyContinue)) {
+    Import-ConfigModule "proxy-management"
 }

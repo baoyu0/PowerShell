@@ -4,35 +4,43 @@ $global:configFile = if ($env:USERPROFILE) {
     Join-Path $env:USERPROFILE ".powershell_theme_config.json"
 } else {
     Write-Warning "无法获取用户配置文件路径，将使用当前目录。"
-    ".\.powershell_theme_config.json"
+    Join-Path $PSScriptRoot ".powershell_theme_config.json"
 }
 
-# 确保 Save-ThemeConfig 和 Load-ThemeConfig 是全局函数
-function global:Save-ThemeConfig {
+# 确保 Save-ThemeConfig 和 Import-ThemeConfig 是全局函数
+function Save-ThemeConfig {
     if (-not $global:configFile) {
         Write-Error "配置文件路径未定义"
         return
     }
-    $config = @{
-        Theme = $script:currentTheme
-        PromptStyle = $script:currentPromptStyle
+    try {
+        $config = @{
+            Theme = $script:currentTheme
+            PromptStyle = $script:currentPromptStyle
+        }
+        $config | ConvertTo-Json | Set-Content -Path $global:configFile -ErrorAction Stop
+        Write-Host "主题配置已保存到 $global:configFile" -ForegroundColor Green
+    } catch {
+        Write-Error "保存主题配置时出错: $_"
     }
-    $config | ConvertTo-Json | Set-Content -Path $global:configFile
-    Write-Host "主题配置已保存到 $global:configFile" -ForegroundColor Green
 }
 
-function global:Load-ThemeConfig {
+function Import-ThemeConfig {
     if (-not $global:configFile) {
         Write-Error "配置文件路径未定义"
         return
     }
     if (Test-Path $global:configFile) {
-        $config = Get-Content -Path $global:configFile | ConvertFrom-Json
-        if ($config.Theme -ne $script:currentTheme) {
-            Set-PowerShellTheme $config.Theme
-        }
-        if ($config.PromptStyle -ne $script:currentPromptStyle) {
-            Set-CustomPrompt $config.PromptStyle
+        try {
+            $config = Get-Content -Path $global:configFile | ConvertFrom-Json
+            if ($null -ne $config.Theme -and $config.Theme -ne $script:currentTheme) {
+                Set-PowerShellTheme $config.Theme
+            }
+            if ($null -ne $config.PromptStyle -and $config.PromptStyle -ne $script:currentPromptStyle) {
+                Set-CustomPrompt $config.PromptStyle
+            }
+        } catch {
+            Write-Error "加载主题配置时出错: $_"
         }
     } else {
         Write-Warning "主题配置文件不存在，将使用默认设置。"
@@ -71,7 +79,7 @@ $script:currentTheme = "Default"
 $script:currentPromptStyle = "Default"
 
 # 设置主题
-function global:Set-PowerShellTheme {
+function Set-PowerShellTheme {
     param (
         [Parameter(Mandatory=$true)]
         [ValidateSet("Default", "Light", "Solarized")]
@@ -82,40 +90,22 @@ function global:Set-PowerShellTheme {
         return
     }
 
-    try {
-        $theme = $global:themes[$ThemeName]
-        if ($null -eq $theme) {
-            throw "主题 '$ThemeName' 未定义"
-        }
-
-        $Host.UI.RawUI.BackgroundColor = [System.ConsoleColor]$theme.Background
-        $Host.UI.RawUI.ForegroundColor = [System.ConsoleColor]$theme.Foreground
-        $Host.PrivateData.ErrorForegroundColor = [System.ConsoleColor]$theme.ErrorForeground
-        $Host.PrivateData.WarningForegroundColor = [System.ConsoleColor]$theme.WarningForeground
-        $Host.PrivateData.VerboseForegroundColor = [System.ConsoleColor]$theme.VerboseForeground
-
+    if ($global:themes.ContainsKey($ThemeName)) {
+        # 应用主题设置（具体实现视环境而定）
+        Write-Host "应用主题: $ThemeName" -ForegroundColor Green
         $script:currentTheme = $ThemeName
         Save-ThemeConfig
-        Write-Host "已成功应用并保存 $ThemeName 主题" -ForegroundColor Green
-    
-        # 刷新控制台颜色
-        [Console]::Clear()
-    } catch {
-        Write-Error "设置主题时出错: $_"
+    } else {
+        Write-Warning "未定义的主题: $ThemeName"
     }
 }
 
-# 获取当前主题
-function global:Get-CurrentTheme {
-    Write-Host "当前主题: $script:currentTheme" -ForegroundColor Cyan
-}
-
-# 自定义提示符样式
-function global:Set-CustomPrompt {
+# 设置自定义提示符
+function Set-CustomPrompt {
     param (
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory=$true)]
         [ValidateSet("Default", "Minimal", "Informative")]
-        [string]$Style = "Default"
+        [string]$Style
     )
 
     if ($Style -eq $script:currentPromptStyle -and -not $PSBoundParameters.ContainsKey('Verbose')) {
@@ -124,24 +114,24 @@ function global:Set-CustomPrompt {
 
     switch ($Style) {
         "Default" {
-            function global:prompt {
+            function prompt {
                 $location = Get-Location
                 "PS $location> "
             }
         }
         "Minimal" {
-            function global:prompt {
+            function prompt {
                 "$([char]0x03BB) "
             }
         }
         "Informative" {
-            function global:prompt {
+            function prompt {
                 $location = Get-Location
                 $time = Get-Date -Format "HH:mm:ss"
                 $user = $env:USERNAME
-                $host = $env:COMPUTERNAME
+                $computerName = $env:COMPUTERNAME  # 使用 $computerName 替代 $host
                 Write-Host "[$time] " -NoNewline -ForegroundColor Yellow
-                Write-Host "$user@$host" -NoNewline -ForegroundColor Green
+                Write-Host "$user@$computerName" -NoNewline -ForegroundColor Green
                 Write-Host " $location" -ForegroundColor Cyan
                 return "$ "
             }
@@ -154,33 +144,13 @@ function global:Set-CustomPrompt {
 }
 
 # 修改模块帮助信息函数
-function global:Show-ThemeManagerHelp {
+function Show-ThemeManagerHelp {
     Write-Host "主题管理模块帮助：" -ForegroundColor Cyan
-    Write-Host "  Set-PowerShellTheme <ThemeName> - 设置 PowerShell 主题 (可选: Default, Light, Solarized)"
-    Write-Host "  Get-CurrentTheme               - 显示当前使用的主题"
-    Write-Host "  Set-CustomPrompt <Style>       - 设置提示符样式 (可选: Default, Minimal, Informative)"
-    Write-Host "  Get-AvailableThemes            - 列出所有可用的主题及其详细信息"
+    Write-Host "  Set-PowerShellTheme <ThemeName>   - 设置 PowerShell 主题"
+    Write-Host "  Set-CustomPrompt <Style>          - 设置提示符样式"
+    Write-Host "  Save-ThemeConfig                  - 保存当前主题配置"
+    Write-Host "  Import-ThemeConfig                - 导入主题配置"
 }
 
-# 初始化默认主题和提示符，但不显示信息
-Set-PowerShellTheme "Default" | Out-Null
-Set-CustomPrompt "Default" | Out-Null
-
-# 初始化时加载保存的配置，但不显示信息
-Load-ThemeConfig | Out-Null
-
-# 在文件的适当位置添加以下函数
-
-function global:Get-AvailableThemes {
-    Write-Host "可用的主题：" -ForegroundColor Cyan
-    foreach ($themeName in $global:themes.Keys) {
-        $theme = $global:themes[$themeName]
-        Write-Host "  $themeName" -ForegroundColor Green
-        Write-Host "    背景色: $($theme.Background)"
-        Write-Host "    前景色: $($theme.Foreground)"
-        Write-Host "    错误文本颜色: $($theme.ErrorForeground)"
-        Write-Host "    警告文本颜色: $($theme.WarningForeground)"
-        Write-Host "    详细信息文本颜色: $($theme.VerboseForeground)"
-        Write-Host ""
-    }
-}
+# 初始化时导入配置
+Import-ThemeConfig

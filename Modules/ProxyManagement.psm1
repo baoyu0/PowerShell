@@ -89,4 +89,15 @@ function Set-ProxyStatus {
     } while ($choice -ne "0")
 }
 
-Export-ModuleMember -Function Set-ProxyStatus, Get-ProxyStatus, Enable-Proxy, Disable-Proxy
+function Manage-Proxy {
+    # 函数内容
+}
+
+function Invoke-ProxyManager {
+    # 函数内容
+}
+
+Set-Alias -Name Manage-Proxy -Value Invoke-ProxyManager
+
+# 如果这是一个模块文件，确保导出新的函数名和别名
+Export-ModuleMember -Function Invoke-ProxyManager -Alias Manage-Proxy

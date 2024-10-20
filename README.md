@@ -7,6 +7,7 @@
 - Terminal-Icons 支持
 - Winget 自动补全
 - 实用函数和别名
+- 代理管理模块
 
 ## 安装
 
@@ -21,9 +22,28 @@
 
 该模块提供了便捷的代理管理功能，包括设置、清除、测试代理等。
 
-#### 示例
+#### 使用方法
 
-1. **开启代理**
+使用 `Invoke-ProxyManager` 函数来管理代理设置。为了保持向后兼容性，`Manage-Proxy` 别名也可以使用。
+
+示例：
+
+#### 可用命令
+
+- `Set-ProxyStatus On/Off [HttpProxy] [SocksProxy]` - 开启或关闭代理
+- `Get-ProxyStatus` - 显示当前代理设置
+- `Set-DefaultProxy <HttpProxy> <SocksProxy>` - 设置默认代理
+- `Switch-ProxyAuto` - 自动检测并切换代理
+- `Show-ProxyMenu` - 显示交互式代理管理菜单
+
+### 其他实用函数
+
+- `Update-Profile` - 更新并重新加载 PowerShell 配置文件
+- `Test-NetworkConnection` - 测试网络连接
+
+## 主题管理
+
+使用 `Set-PowerShellTheme` 和 `Set-CustomPrompt` 来自定义您的 PowerShell 外观。
 
 ## 贡献
 

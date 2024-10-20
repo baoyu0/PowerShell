@@ -20,7 +20,7 @@ if (-not (Test-Path $configDir)) {
 }
 
 # 加载代理配置
-function global:Load-ProxyConfig {
+function Import-ProxyConfig {
     if (-not $global:proxyConfigFile) {
         Write-Error "代理配置文件路径未定义"
         return
@@ -44,7 +44,7 @@ function global:Load-ProxyConfig {
 }
 
 # 保存代理配置
-function global:Save-ProxyConfig {
+function Save-ProxyConfig {
     if (-not $global:proxyConfigFile) {
         Write-Error "代理配置文件路径未定义"
         return
@@ -63,7 +63,7 @@ function global:Save-ProxyConfig {
 }
 
 # 设置代理
-function global:Set-ProxyStatus {
+function Set-ProxyStatus {
     param (
         [Parameter(Mandatory=$true)]
         [ValidateSet("On", "Off")]
@@ -79,23 +79,31 @@ function global:Set-ProxyStatus {
         $HttpProxy = if ($HttpProxy) { $HttpProxy } else { $script:defaultHttpProxy }
         $SocksProxy = if ($SocksProxy) { $SocksProxy } else { $script:defaultSocksProxy }
 
-        [System.Environment]::SetEnvironmentVariable('HTTP_PROXY', $HttpProxy, 'User')
-        [System.Environment]::SetEnvironmentVariable('HTTPS_PROXY', $HttpProxy, 'User')
-        [System.Environment]::SetEnvironmentVariable('ALL_PROXY', $SocksProxy, 'User')
-        $script:proxyEnabled = $true
-        if (-not $Silent) { Write-Host "代理已开启" -ForegroundColor Green }
+        try {
+            [System.Environment]::SetEnvironmentVariable('HTTP_PROXY', $HttpProxy, 'User')
+            [System.Environment]::SetEnvironmentVariable('HTTPS_PROXY', $HttpProxy, 'User')
+            [System.Environment]::SetEnvironmentVariable('ALL_PROXY', $SocksProxy, 'User')
+            $script:proxyEnabled = $true
+            if (-not $Silent) { Write-Host "代理已开启" -ForegroundColor Green }
+        } catch {
+            Write-Error "设置代理环境变量时出错: $_"
+        }
     } else {
-        [System.Environment]::SetEnvironmentVariable('HTTP_PROXY', $null, 'User')
-        [System.Environment]::SetEnvironmentVariable('HTTPS_PROXY', $null, 'User')
-        [System.Environment]::SetEnvironmentVariable('ALL_PROXY', $null, 'User')
-        $script:proxyEnabled = $false
-        if (-not $Silent) { Write-Host "代理已关闭" -ForegroundColor Yellow }
+        try {
+            [System.Environment]::SetEnvironmentVariable('HTTP_PROXY', $null, 'User')
+            [System.Environment]::SetEnvironmentVariable('HTTPS_PROXY', $null, 'User')
+            [System.Environment]::SetEnvironmentVariable('ALL_PROXY', $null, 'User')
+            $script:proxyEnabled = $false
+            if (-not $Silent) { Write-Host "代理已关闭" -ForegroundColor Yellow }
+        } catch {
+            Write-Error "移除代理环境变量时出错: $_"
+        }
     }
     Save-ProxyConfig
 }
 
 # 获取代理状态
-function global:Get-ProxyStatus {
+function Get-ProxyStatus {
     $httpProxy = [System.Environment]::GetEnvironmentVariable('HTTP_PROXY', 'User')
     $socksProxy = [System.Environment]::GetEnvironmentVariable('ALL_PROXY', 'User')
     
@@ -109,7 +117,7 @@ function global:Get-ProxyStatus {
 }
 
 # 修改默认代理设置
-function global:Set-DefaultProxy {
+function Set-DefaultProxy {
     param (
         [Parameter(Mandatory=$true)]
         [string]$HttpProxy,
@@ -132,10 +140,10 @@ function global:Set-DefaultProxy {
 }
 
 # 自动检测网络环境并切换代理
-function global:Auto-SwitchProxy {
+function Switch-ProxyAuto {
     $testUrl = "https://www.google.com"
     try {
-        Invoke-WebRequest -Uri $testUrl -TimeoutSec 5 -UseBasicParsing | Out-Null
+        Invoke-WebRequest -Uri $testUrl -TimeoutSec 5 | Out-Null
         Set-ProxyStatus -Status Off
         Write-Host "检测到直接连接可用，已关闭代理" -ForegroundColor Green
     } catch {
@@ -145,7 +153,7 @@ function global:Auto-SwitchProxy {
 }
 
 # 交互式菜单
-function global:Show-ProxyMenu {
+function Show-ProxyMenu {
     do {
         Clear-Host
         Write-Host "=== 代理管理菜单 ===" -ForegroundColor Cyan
@@ -166,23 +174,46 @@ function global:Show-ProxyMenu {
                 $socksProxy = Read-Host "请输入新的 SOCKS 代理地址"
                 Set-DefaultProxy -HttpProxy $httpProxy -SocksProxy $socksProxy
             }
-            "5" { Auto-SwitchProxy }
+            "5" { Switch-ProxyAuto }
             "6" { return }
             default { Write-Host "无效的选择，请重试" -ForegroundColor Red }
         }
-        pause
+        Pause
     } while ($true)
 }
 
 # 帮助函数
-function global:Show-ProxyManagementHelp {
+function Show-ProxyManagementHelp {
     Write-Host "代理管理模块帮助：" -ForegroundColor Cyan
     Write-Host "  Set-ProxyStatus On/Off [HttpProxy] [SocksProxy] - 开启或关闭代理"
     Write-Host "  Get-ProxyStatus                                - 显示当前代理设置"
     Write-Host "  Set-DefaultProxy <HttpProxy> <SocksProxy>      - 设置默认代理"
-    Write-Host "  Auto-SwitchProxy                               - 自动检测并切换代理"
+    Write-Host "  Switch-ProxyAuto                               - 自动检测并切换代理"
     Write-Host "  Show-ProxyMenu                                 - 显示交互式代理管理菜单"
+    Write-Host "  Invoke-ProxyManager                            - 启动代理管理器（等同于 Show-ProxyMenu）"
+    Write-Host "  Manage-Proxy                                   - 'Invoke-ProxyManager' 的别名（用于向后兼容）"
 }
 
 # 初始化时加载配置
-Load-ProxyConfig
+Import-ProxyConfig
+
+# 使用新的函数名
+function Invoke-ProxyManager {
+    Show-ProxyMenu
+}
+
+# 添加别名前检查，避免覆盖
+if (-not (Get-Alias -Name Manage-Proxy -ErrorAction SilentlyContinue)) {
+    # 添加别名并抑制 PSScriptAnalyzer 规则 PSUseApprovedVerbs
+    # <Disable-PSScriptAnalyzer Rule=PSUseApprovedVerbs>
+    New-Alias -Name Manage-Proxy -Value Invoke-ProxyManager -Force
+    # <Enable-PSScriptAnalyzer Rule=PSUseApprovedVerbs>
+    
+    # 添加注释
+    Write-Host "'Manage-Proxy' 别名已创建，指向 'Invoke-ProxyManager'。" -ForegroundColor Green
+} else {
+    Write-Host "'Manage-Proxy' 别名已存在，不会覆盖。" -ForegroundColor Yellow
+}
+
+# 在文件末尾添加注释
+# 注意：'Manage-Proxy' 别名保留是为了向后兼容性。新代码应使用 'Invoke-ProxyManager'。
